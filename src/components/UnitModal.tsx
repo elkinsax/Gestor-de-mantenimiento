@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MaintenanceUnit, Role, Status, InventoryItem, MaterialRequest } from '../types';
 import Carousel from './Carousel';
-import { X, Save, Plus, Trash2, DollarSign, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { X, Save, Plus, DollarSign, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
 interface UnitModalProps {
   unit: MaintenanceUnit;
@@ -84,14 +84,6 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
       }));
     };
     reader.readAsDataURL(file);
-  };
-
-  const getStatusColor = (s: Status) => {
-    switch (s) {
-      case Status.OPERATIVE: return 'bg-blue-600 text-white';
-      case Status.PREVENTION: return 'bg-orange-500 text-white';
-      case Status.REPAIR: return 'bg-red-600 text-white';
-    }
   };
 
   return (

@@ -1,7 +1,7 @@
 import React from 'react';
 import { MaintenanceUnit, Status } from '../types';
 import Carousel from './Carousel';
-import { Edit2, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Edit2, Package, AlertTriangle } from 'lucide-react';
 
 interface UnitCardProps {
   unit: MaintenanceUnit;
