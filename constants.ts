@@ -1,4 +1,18 @@
-import { MaintenanceUnit, Status } from './types';
+import { MaintenanceUnit, Status, Tool, WarehouseItem } from './types';
+
+export const INITIAL_TOOLS: Tool[] = [
+  { id: 't1', name: 'Taladro Percutor Makita', status: 'AVAILABLE', image: 'https://picsum.photos/id/1/200/200' },
+  { id: 't2', name: 'Escalera Tijera 3m', status: 'IN_USE', assignedTo: 'Carlos Pérez', assignedDate: '2023-10-27', image: 'https://picsum.photos/id/2/200/200' },
+  { id: 't3', name: 'Kit Destornilladores', status: 'AVAILABLE', image: 'https://picsum.photos/id/3/200/200' },
+  { id: 't4', name: 'Pulidora Industrial', status: 'BROKEN', image: 'https://picsum.photos/id/4/200/200' }
+];
+
+export const INITIAL_WAREHOUSE: WarehouseItem[] = [
+  { id: 'w1', name: 'Pintura Blanca Tipo 1', category: 'Pintura', quantity: 5, unit: 'Galón' },
+  { id: 'w2', name: 'Bombillo LED 12W', category: 'Eléctrico', quantity: 24, unit: 'Unidad' },
+  { id: 'w3', name: 'Cinta Aislante', category: 'Eléctrico', quantity: 10, unit: 'Rollo' },
+  { id: 'w4', name: 'Tubo PVC 1/2"', category: 'Plomería', quantity: 8, unit: 'Tubo' }
+];
 
 export const INITIAL_UNITS: MaintenanceUnit[] = [
   {

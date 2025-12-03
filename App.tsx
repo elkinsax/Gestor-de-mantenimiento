@@ -6,7 +6,8 @@ import UnitModal from './components/UnitModal';
 import CreateUnitModal from './components/CreateUnitModal';
 import ManageCampusesModal from './components/ManageCampusesModal';
 import AdminSettingsModal from './components/AdminSettingsModal';
-import { Settings, RefreshCcw, Filter, MapPin, Plus, Building } from 'lucide-react';
+import WarehouseModal from './components/WarehouseModal';
+import { Settings, RefreshCcw, Filter, MapPin, Plus, Building, Package } from 'lucide-react';
 
 const App: React.FC = () => {
   const [units, setUnits] = useState<MaintenanceUnit[]>([]);
@@ -19,6 +20,7 @@ const App: React.FC = () => {
   const [isManageCampusesOpen, setIsManageCampusesOpen] = useState(false);
   const [isCreateUnitOpen, setIsCreateUnitOpen] = useState(false);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
+  const [isWarehouseOpen, setIsWarehouseOpen] = useState(false);
 
   // Filter state
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL');
@@ -117,7 +119,8 @@ const App: React.FC = () => {
                   />
                 </div>
              
-              <span className="font-bold text-lg tracking-tight">GESTOR DE MANTENIMIENTO</span>
+              <span className="font-bold text-lg tracking-tight hidden sm:block">GESTOR DE MANTENIMIENTO</span>
+              <span className="font-bold text-lg tracking-tight sm:hidden">GESTOR</span>
             </div>
 
             {/* Role Switcher (For Demo Purposes) */}
@@ -183,13 +186,20 @@ const App: React.FC = () => {
                 <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-end">
                     
                     {canEditStructure && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                              <button 
                                 onClick={() => setIsManageCampusesOpen(true)}
                                 className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
                             >
                                 <Building size={16} />
-                                Gestionar Sedes
+                                Sedes
+                            </button>
+                            <button 
+                                onClick={() => setIsWarehouseOpen(true)}
+                                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
+                            >
+                                <Package size={16} />
+                                Almacén
                             </button>
                             <button 
                                 onClick={() => setIsCreateUnitOpen(true)}
@@ -326,6 +336,12 @@ const App: React.FC = () => {
         campuses={availableCampuses}
         onClose={() => setIsCreateUnitOpen(false)}
         onSave={handleCreateUnit}
+      />
+      
+      {/* Warehouse / Tools Modal */}
+      <WarehouseModal
+        isOpen={isWarehouseOpen}
+        onClose={() => setIsWarehouseOpen(false)}
       />
 
       {/* Admin Settings Modal */}
