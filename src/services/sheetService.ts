@@ -165,20 +165,22 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
     const tools = await getTools();
     const warehouse = await getWarehouse();
     
+    // Construct the payload with ALL data types
     const payload = {
       timestamp: new Date().toISOString(),
       action: 'SYNC_UP',
       data: {
         units,
         campuses,
-        tools,
-        warehouse
+        tools,     // Ensure tools are included
+        warehouse  // Ensure warehouse items are included
       }
     };
 
     console.log("---------------- SYNC DEBUG ----------------");
     console.log("Sending payload to:", url);
-    console.log("Payload Structure:", JSON.stringify(payload, null, 2));
+    console.log(`Summary: ${units.length} Units, ${campuses.length} Campuses, ${tools.length} Tools, ${warehouse.length} Warehouse Items`);
+    console.log("Payload Data:", JSON.stringify(payload.data, null, 2));
     console.log("--------------------------------------------");
 
     const response = await fetch(url, {
