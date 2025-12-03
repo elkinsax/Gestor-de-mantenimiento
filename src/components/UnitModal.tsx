@@ -74,16 +74,67 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
     setEditedUnit({ ...editedUnit, requests: newRequests });
   };
 
-  const handleImageUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
+  // Image Compression Utility
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1024; // Resize large mobile photos to max 1024px width
+          const MAX_HEIGHT = 1024;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG with 0.7 quality (drastically reduces size from MBs to KBs)
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      const compressedBase64 = await compressImage(file);
       setEditedUnit(prev => ({
         ...prev,
-        images: [...prev.images, base64].slice(0, 5) // Max 5 photos
+        images: [...prev.images, compressedBase64].slice(0, 5) // Max 5 photos
       }));
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error compressing image:", error);
+      alert("Error al procesar la imagen.");
+    }
+  };
+
+  const handleDeleteImage = (index: number) => {
+    if (!canEdit) return;
+    const newImages = editedUnit.images.filter((_, i) => i !== index);
+    setEditedUnit(prev => ({
+      ...prev,
+      images: newImages
+    }));
   };
 
   return (
@@ -113,6 +164,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                   heightClass="h-72" 
                   editable={canEdit}
                   onUpload={handleImageUpload}
+                  onDelete={handleDeleteImage}
                 />
               </div>
 

@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Image as ImageIcon, Trash2 } from 'lucide-react';
 
 interface CarouselProps {
   images: string[];
   heightClass?: string;
   editable?: boolean;
   onUpload?: (file: File) => void;
+  onDelete?: (index: number) => void;
 }
 
-const Carousel: React.FC<CarouselProps> = ({ images, heightClass = 'h-64', editable = false, onUpload }) => {
+const Carousel: React.FC<CarouselProps> = ({ images, heightClass = 'h-64', editable = false, onUpload, onDelete }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Safety check: If an image is deleted and index is out of bounds, go back one
+  useEffect(() => {
+    if (currentIndex >= images.length && images.length > 0) {
+      setCurrentIndex(images.length - 1);
+    }
+  }, [images.length, currentIndex]);
 
   const prev = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -24,6 +32,17 @@ const Carousel: React.FC<CarouselProps> = ({ images, heightClass = 'h-64', edita
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0] && onUpload) {
       onUpload(e.target.files[0]);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(currentIndex);
+      // Adjust index immediately to prevent flashing empty
+      if (currentIndex === images.length - 1 && currentIndex > 0) {
+        setCurrentIndex(currentIndex - 1);
+      }
     }
   };
 
@@ -84,8 +103,18 @@ const Carousel: React.FC<CarouselProps> = ({ images, heightClass = 'h-64', edita
       )}
 
       {editable && (
-        <div className="absolute top-2 right-2">
-           <label className="cursor-pointer bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-colors flex items-center justify-center">
+        <div className="absolute top-2 right-2 flex gap-2">
+           {/* Delete Button */}
+           <button 
+             onClick={handleDelete}
+             className="bg-red-600/80 hover:bg-red-600 text-white p-2 rounded-full backdrop-blur-sm transition-colors flex items-center justify-center shadow-sm"
+             title="Eliminar esta foto"
+           >
+             <Trash2 size={14} />
+           </button>
+
+           {/* Add Button */}
+           <label className="cursor-pointer bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-colors flex items-center justify-center shadow-sm">
              <span className="text-[10px] font-bold">+</span>
              <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
            </label>
