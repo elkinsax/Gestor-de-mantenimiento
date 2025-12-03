@@ -1,0 +1,7 @@
+{
+  "name": "SchoolMaint - Gestor de Mantenimiento",
+  "description": "Sistema de gestión de mantenimiento para colegios con semaforización de estados y conexión a inventarios.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
