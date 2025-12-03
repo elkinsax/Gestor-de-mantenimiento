@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { MaintenanceUnit, Role, Status } from './types';
-import { getUnits, updateUnit, resetData, getCampuses, addCampus, createUnit, renameCampus, deleteCampus } from './services/sheetService';
+import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
 import CreateUnitModal from './components/CreateUnitModal';
 import ManageCampusesModal from './components/ManageCampusesModal';
 import AdminSettingsModal from './components/AdminSettingsModal';
 import WarehouseModal from './components/WarehouseModal';
-import { Settings, RefreshCcw, Filter, MapPin, Plus, Building, Package } from 'lucide-react';
+import { Settings, Filter, MapPin, Plus, Building, Package } from 'lucide-react';
 
 const App: React.FC = () => {
   const [units, setUnits] = useState<MaintenanceUnit[]>([]);
@@ -148,9 +148,6 @@ const App: React.FC = () => {
                     <Settings size={18} />
                  </button>
                )}
-               <button onClick={resetData} title="Reset Demo Data" className="p-2 text-gray-400 hover:text-white transition">
-                  <RefreshCcw size={18} />
-               </button>
                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 border-2 border-white/20"></div>
             </div>
           </div>

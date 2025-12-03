@@ -148,7 +148,9 @@ const App: React.FC = () => {
                     <Settings size={18} />
                  </button>
                )}
-               
+               <button onClick={resetData} title="Reset Demo Data" className="p-2 text-gray-400 hover:text-white transition">
+                  <RefreshCcw size={18} />
+               </button>
                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 border-2 border-white/20"></div>
             </div>
           </div>
