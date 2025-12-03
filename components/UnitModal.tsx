@@ -23,17 +23,18 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
 
   if (!isOpen) return null;
 
-  const isMaintenance = role === 'MAINTENANCE';
-  const isTreasury = role === 'TREASURY';
+  // Permissions
+  const canEdit = role === 'MAINTENANCE' || role === 'ADMIN';
+  const isTreasury = role === 'TREASURY' || role === 'ADMIN'; 
 
   const handleStatusChange = (status: Status) => {
-    if (isMaintenance) {
+    if (canEdit) {
       setEditedUnit({ ...editedUnit, status });
     }
   };
 
   const handleInventoryChange = (id: string, field: keyof InventoryItem, value: any) => {
-    if (!isMaintenance) return;
+    if (!canEdit) return;
     const newInventory = editedUnit.inventory.map(item => 
       item.id === id ? { ...item, [field]: value } : item
     );
@@ -118,7 +119,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                 <Carousel 
                   images={editedUnit.images} 
                   heightClass="h-72" 
-                  editable={isMaintenance}
+                  editable={canEdit}
                   onUpload={handleImageUpload}
                 />
               </div>
@@ -140,9 +141,9 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                     return (
                       <button
                         key={key}
-                        disabled={!isMaintenance}
+                        disabled={!canEdit}
                         onClick={() => handleStatusChange(statusValue)}
-                        className={`${baseClass} ${activeClass} ${!isMaintenance ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        className={`${baseClass} ${activeClass} ${!canEdit ? 'opacity-70 cursor-not-allowed' : ''}`}
                       >
                          {statusValue === Status.OPERATIVE && <CheckCircle size={20} className={isSelected ? 'text-blue-600' : 'text-gray-400'} />}
                          {statusValue === Status.PREVENTION && <Clock size={20} className={isSelected ? 'text-orange-500' : 'text-gray-400'} />}
@@ -160,7 +161,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                   className="w-full border rounded-md p-3 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition"
                   rows={5}
                   value={editedUnit.description}
-                  disabled={!isMaintenance}
+                  disabled={!canEdit}
                   onChange={(e) => setEditedUnit({...editedUnit, description: e.target.value})}
                   placeholder="Descripción del estado, novedades o requerimientos..."
                 />
@@ -189,7 +190,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                   <div className="space-y-4">
                     <div className="flex justify-between items-center mb-4">
                         <h4 className="font-semibold text-gray-900">Activos Fijos</h4>
-                        {isMaintenance && (
+                        {canEdit && (
                             <button onClick={addInventoryItem} className="text-xs bg-black text-white px-3 py-1.5 rounded hover:bg-gray-800 transition flex items-center gap-1">
                                 <Plus size={14} /> Agregar Item
                             </button>
@@ -199,7 +200,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                     {editedUnit.inventory.map((item) => (
                       <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex items-center gap-4">
                         <div className="flex-1">
-                          {isMaintenance ? (
+                          {canEdit ? (
                             <input 
                               value={item.name} 
                               onChange={(e) => handleInventoryChange(item.id, 'name', e.target.value)}
@@ -212,7 +213,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                         
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500">Cant:</span>
-                             {isMaintenance ? (
+                             {canEdit ? (
                                 <input 
                                   type="number"
                                   value={item.quantity}
@@ -225,7 +226,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                         </div>
 
                         <div className="w-24">
-                            {isMaintenance ? (
+                            {canEdit ? (
                                 <select 
                                     value={item.condition}
                                     onChange={(e) => handleInventoryChange(item.id, 'condition', e.target.value)}
@@ -255,7 +256,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                 {activeTab === 'requests' && (
                   <div className="space-y-6">
                     {/* Add Request Form */}
-                    {isMaintenance && (
+                    {canEdit && (
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                         <h4 className="text-sm font-semibold text-blue-800 mb-3">Nueva Solicitud / Factura</h4>
                         <div className="flex flex-col gap-3">
@@ -337,7 +338,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
             >
                 Cancelar
             </button>
-            {(isMaintenance || isTreasury) && (
+            {(canEdit || isTreasury) && (
                 <button 
                     onClick={() => onSave(editedUnit)}
                     className="px-6 py-2.5 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-md shadow-sm transition flex items-center gap-2"

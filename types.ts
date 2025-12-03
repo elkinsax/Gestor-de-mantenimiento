@@ -1,4 +1,4 @@
-export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER';
+export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN';
 
 export enum Status {
   OPERATIVE = 'OPERATIVE',   // Azul

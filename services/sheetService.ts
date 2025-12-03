@@ -2,20 +2,19 @@ import { INITIAL_UNITS } from '../constants';
 import { MaintenanceUnit } from '../types';
 
 /**
- * In a real application, this service would make HTTP requests to a Python backend (Flask/FastAPI)
- * or use the Google Sheets API directly to sync data. 
- * 
- * For this demo, we use LocalStorage to persist data between reloads.
+ * Service to manage data persistence and API synchronization.
+ * Uses LocalStorage for offline capability and Fetch API for cloud sync.
  */
 
 const STORAGE_KEY = 'school_maint_data_v1';
 const CAMPUS_KEY = 'school_maint_campuses_v1';
+const API_CONFIG_KEY = 'school_maint_api_config_v1';
 
 // --- UNITS ---
 
 export const getUnits = async (): Promise<MaintenanceUnit[]> => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Simulate network delay for realistic UI feel
+  await new Promise(resolve => setTimeout(resolve, 300));
   
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
@@ -25,7 +24,7 @@ export const getUnits = async (): Promise<MaintenanceUnit[]> => {
 };
 
 export const updateUnit = async (updatedUnit: MaintenanceUnit): Promise<MaintenanceUnit[]> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise(resolve => setTimeout(resolve, 200));
   
   const stored = localStorage.getItem(STORAGE_KEY);
   const units: MaintenanceUnit[] = stored ? JSON.parse(stored) : INITIAL_UNITS;
@@ -37,7 +36,7 @@ export const updateUnit = async (updatedUnit: MaintenanceUnit): Promise<Maintena
 };
 
 export const createUnit = async (newUnit: MaintenanceUnit): Promise<MaintenanceUnit[]> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   const stored = localStorage.getItem(STORAGE_KEY);
   const units: MaintenanceUnit[] = stored ? JSON.parse(stored) : INITIAL_UNITS;
@@ -52,8 +51,7 @@ export const createUnit = async (newUnit: MaintenanceUnit): Promise<MaintenanceU
 // --- CAMPUSES ---
 
 export const getCampuses = async (): Promise<string[]> => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   const stored = localStorage.getItem(CAMPUS_KEY);
   if (stored) {
@@ -62,7 +60,6 @@ export const getCampuses = async (): Promise<string[]> => {
 
   // If no stored campuses, derive from INITIAL_UNITS
   const derivedCampuses = Array.from(new Set(INITIAL_UNITS.map(u => u.campus)));
-  // Save them so we can add to them later
   localStorage.setItem(CAMPUS_KEY, JSON.stringify(derivedCampuses));
   
   return derivedCampuses;
@@ -83,8 +80,117 @@ export const addCampus = async (name: string): Promise<string[]> => {
   return campuses;
 };
 
+export const renameCampus = async (oldName: string, newName: string): Promise<{campuses: string[], units: MaintenanceUnit[]}> => {
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  // 1. Update Campus List
+  const storedCampuses = localStorage.getItem(CAMPUS_KEY);
+  let campuses: string[] = storedCampuses ? JSON.parse(storedCampuses) : [];
+  campuses = campuses.map(c => c === oldName ? newName : c);
+  localStorage.setItem(CAMPUS_KEY, JSON.stringify(campuses));
+
+  // 2. Update Units associated with this campus
+  const storedUnits = localStorage.getItem(STORAGE_KEY);
+  let units: MaintenanceUnit[] = storedUnits ? JSON.parse(storedUnits) : INITIAL_UNITS;
+  
+  // Update the campus name in all units
+  units = units.map(u => u.campus === oldName ? { ...u, campus: newName } : u);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
+
+  return { campuses, units };
+};
+
+export const deleteCampus = async (name: string): Promise<{campuses: string[], units: MaintenanceUnit[]}> => {
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  // 1. Remove from Campus List
+  const storedCampuses = localStorage.getItem(CAMPUS_KEY);
+  let campuses: string[] = storedCampuses ? JSON.parse(storedCampuses) : [];
+  campuses = campuses.filter(c => c !== name);
+  localStorage.setItem(CAMPUS_KEY, JSON.stringify(campuses));
+
+  // 2. Remove Units associated with this campus (Cascade Delete)
+  const storedUnits = localStorage.getItem(STORAGE_KEY);
+  let units: MaintenanceUnit[] = storedUnits ? JSON.parse(storedUnits) : INITIAL_UNITS;
+  units = units.filter(u => u.campus !== name);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
+
+  return { campuses, units };
+};
+
 export const resetData = () => {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(CAMPUS_KEY);
   window.location.reload();
+};
+
+// --- GOOGLE SHEETS / BACKEND CONNECTION ---
+
+export const getApiConfig = (): string => {
+  return localStorage.getItem(API_CONFIG_KEY) || '';
+};
+
+export const saveApiConfig = (url: string) => {
+  localStorage.setItem(API_CONFIG_KEY, url.trim());
+};
+
+export const syncWithGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
+  const url = getApiConfig();
+  if (!url) {
+    return { success: false, message: 'No se ha configurado la URL del API.' };
+  }
+
+  try {
+    const units = await getUnits();
+    const campuses = await getCampuses();
+    
+    const payload = {
+      timestamp: new Date().toISOString(),
+      action: 'SYNC_UP', // Tell the backend we are sending updates
+      data: {
+        units,
+        campuses
+      }
+    };
+
+    console.log("---------------- SYNC DEBUG ----------------");
+    console.log("Sending payload to:", url);
+    console.log("Payload Structure:", JSON.stringify(payload, null, 2));
+    console.log("--------------------------------------------");
+
+    // Using 'text/plain' for Content-Type to avoid CORS preflight (OPTIONS) issues 
+    // commonly found with Google Apps Script Web Apps.
+    const response = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 
+        'Content-Type': 'text/plain' 
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+    }
+
+    // Try to parse JSON response, but handle text response gracefully
+    const textResult = await response.text();
+    let jsonResult;
+    try {
+      jsonResult = JSON.parse(textResult);
+    } catch (e) {
+      console.warn("Response was not valid JSON:", textResult);
+    }
+
+    return { 
+      success: true, 
+      message: jsonResult?.message || 'Datos enviados correctamente al servidor.' 
+    };
+
+  } catch (error: any) {
+    console.error("Sync Error:", error);
+    return { 
+      success: false, 
+      message: `Error de conexión: ${error.message || 'Desconocido'}. Verifica la URL y CORS.` 
+    };
+  }
 };

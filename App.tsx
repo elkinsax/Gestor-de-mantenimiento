@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { MaintenanceUnit, Role, Status } from './types';
-import { getUnits, updateUnit, resetData, getCampuses, addCampus, createUnit } from './services/sheetService';
+import { getUnits, updateUnit, resetData, getCampuses, addCampus, createUnit, renameCampus, deleteCampus } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
-import CreateCampusModal from './components/CreateCampusModal';
 import CreateUnitModal from './components/CreateUnitModal';
-import { Settings, LogOut, RefreshCcw, Filter, MapPin, Plus, Building, Layout } from 'lucide-react';
+import ManageCampusesModal from './components/ManageCampusesModal';
+import AdminSettingsModal from './components/AdminSettingsModal';
+import { Settings, RefreshCcw, Filter, MapPin, Plus, Building } from 'lucide-react';
 
 const App: React.FC = () => {
   const [units, setUnits] = useState<MaintenanceUnit[]>([]);
@@ -15,8 +16,9 @@ const App: React.FC = () => {
   
   // Modals state
   const [selectedUnit, setSelectedUnit] = useState<MaintenanceUnit | null>(null);
-  const [isCreateCampusOpen, setIsCreateCampusOpen] = useState(false);
+  const [isManageCampusesOpen, setIsManageCampusesOpen] = useState(false);
   const [isCreateUnitOpen, setIsCreateUnitOpen] = useState(false);
+  const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
 
   // Filter state
   const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL');
@@ -40,13 +42,34 @@ const App: React.FC = () => {
     setSelectedUnit(null); // Close modal
   };
 
-  const handleCreateCampus = async (name: string) => {
+  // --- Campus Management Handlers ---
+
+  const handleAddCampus = async (name: string) => {
     const newCampuses = await addCampus(name);
     setAvailableCampuses(newCampuses);
-    setIsCreateCampusOpen(false);
-    // Optionally switch view to new campus
-    setSelectedCampus(name);
   };
+
+  const handleRenameCampus = async (oldName: string, newName: string) => {
+    const { campuses, units } = await renameCampus(oldName, newName);
+    setAvailableCampuses(campuses);
+    setUnits(units);
+    // Update filter if currently filtering by the renamed campus
+    if (selectedCampus === oldName) {
+      setSelectedCampus(newName);
+    }
+  };
+
+  const handleDeleteCampus = async (name: string) => {
+    const { campuses, units } = await deleteCampus(name);
+    setAvailableCampuses(campuses);
+    setUnits(units);
+    // Reset filter if deleted campus was selected
+    if (selectedCampus === name) {
+      setSelectedCampus('TODAS');
+    }
+  };
+
+  // --- Unit Management Handlers ---
 
   const handleCreateUnit = async (newUnit: MaintenanceUnit) => {
     const newUnits = await createUnit(newUnit);
@@ -75,6 +98,9 @@ const App: React.FC = () => {
     repair: unitsInCampus.filter(u => u.status === Status.REPAIR).length,
   };
 
+  // Permissions helper
+  const canEditStructure = role === 'MAINTENANCE' || role === 'ADMIN';
+
   return (
     <div className="min-h-screen bg-[#f9fafb] flex flex-col font-sans">
       
@@ -83,10 +109,15 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white rounded-sm flex items-center justify-center text-black font-bold text-xl">
-                J
-              </div>
-              <span className="font-bold text-lg tracking-tight">SCHOOL MAINT</span>
+              <div className="w-8 h-8 bg-white rounded-sm overflow-hidden flex items-center justify-center">
+                  <img 
+                    src="https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png" 
+                    alt="LOGO-Colegio-Boston-Internacionall" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+             
+              <span className="font-bold text-lg tracking-tight">GESTOR DE MANTENIMIENTO</span>
             </div>
 
             {/* Role Switcher (For Demo Purposes) */}
@@ -99,11 +130,21 @@ const App: React.FC = () => {
               >
                 <option value="MAINTENANCE">Jefe Mantenimiento</option>
                 <option value="TREASURY">Tesorería</option>
+                <option value="ADMIN">Administrador</option>
                 <option value="VIEWER">Usuario (Solo ver)</option>
               </select>
             </div>
 
             <div className="flex items-center gap-4">
+               {role === 'ADMIN' && (
+                 <button 
+                  onClick={() => setIsAdminSettingsOpen(true)}
+                  title="Configuración Admin" 
+                  className="p-2 text-gray-300 hover:text-white transition hover:bg-gray-800 rounded-full"
+                 >
+                    <Settings size={18} />
+                 </button>
+               )}
                <button onClick={resetData} title="Reset Demo Data" className="p-2 text-gray-400 hover:text-white transition">
                   <RefreshCcw size={18} />
                </button>
@@ -121,6 +162,7 @@ const App: React.FC = () => {
               >
                 <option value="MAINTENANCE">Mantenimiento</option>
                 <option value="TREASURY">Tesorería</option>
+                <option value="ADMIN">Admin</option>
                 <option value="VIEWER">Usuario</option>
               </select>
         </div>
@@ -140,14 +182,14 @@ const App: React.FC = () => {
                 {/* Actions and Filter Area */}
                 <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-end">
                     
-                    {role === 'MAINTENANCE' && (
+                    {canEditStructure && (
                         <div className="flex gap-2">
                              <button 
-                                onClick={() => setIsCreateCampusOpen(true)}
+                                onClick={() => setIsManageCampusesOpen(true)}
                                 className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
                             >
                                 <Building size={16} />
-                                Nueva Sede
+                                Gestionar Sedes
                             </button>
                             <button 
                                 onClick={() => setIsCreateUnitOpen(true)}
@@ -268,11 +310,14 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Create Campus Modal */}
-      <CreateCampusModal 
-        isOpen={isCreateCampusOpen}
-        onClose={() => setIsCreateCampusOpen(false)}
-        onSave={handleCreateCampus}
+      {/* Manage Campuses Modal (Replaces CreateCampusModal) */}
+      <ManageCampusesModal 
+        isOpen={isManageCampusesOpen}
+        campuses={availableCampuses}
+        onClose={() => setIsManageCampusesOpen(false)}
+        onAdd={handleAddCampus}
+        onRename={handleRenameCampus}
+        onDelete={handleDeleteCampus}
       />
 
       {/* Create Unit Modal */}
@@ -281,6 +326,12 @@ const App: React.FC = () => {
         campuses={availableCampuses}
         onClose={() => setIsCreateUnitOpen(false)}
         onSave={handleCreateUnit}
+      />
+
+      {/* Admin Settings Modal */}
+      <AdminSettingsModal
+        isOpen={isAdminSettingsOpen}
+        onClose={() => setIsAdminSettingsOpen(false)}
       />
 
     </div>
