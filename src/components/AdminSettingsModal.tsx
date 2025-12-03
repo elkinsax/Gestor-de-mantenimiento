@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
-import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits } from '../services/sheetService';
+import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits, getCampuses, getTools, getWarehouse } from '../services/sheetService';
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -37,11 +37,28 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
   };
 
   const handleExportJson = async () => {
-    const units = await getUnits();
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(units, null, 2));
+    // Gather all data
+    const [units, campuses, tools, warehouse] = await Promise.all([
+      getUnits(),
+      getCampuses(),
+      getTools(),
+      getWarehouse()
+    ]);
+
+    const fullBackup = {
+      timestamp: new Date().toISOString(),
+      data: {
+        campuses,
+        units,
+        tools,
+        warehouse
+      }
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullBackup, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "mantenimiento_backup.json");
+    downloadAnchorNode.setAttribute("download", `mantenimiento_backup_${new Date().toISOString().split('T')[0]}.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -108,7 +125,7 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
                 className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 py-3 px-4 rounded-lg transition"
               >
                 <Download size={18} />
-                Exportar JSON
+                Exportar Todo
               </button>
             </div>
           </div>

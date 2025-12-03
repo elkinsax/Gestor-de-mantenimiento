@@ -165,22 +165,28 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
     const tools = await getTools();
     const warehouse = await getWarehouse();
     
+    // Safety checks to ensure we always send arrays, even if empty
+    const finalUnits = Array.isArray(units) ? units : [];
+    const finalCampuses = Array.isArray(campuses) ? campuses : [];
+    const finalTools = Array.isArray(tools) ? tools : [];
+    const finalWarehouse = Array.isArray(warehouse) ? warehouse : [];
+
     // Construct the payload with ALL data types
     const payload = {
       timestamp: new Date().toISOString(),
       action: 'SYNC_UP',
       data: {
-        units,
-        campuses,
-        tools,     // Ensure tools are included
-        warehouse  // Ensure warehouse items are included
+        units: finalUnits,
+        campuses: finalCampuses,
+        tools: finalTools,
+        warehouse: finalWarehouse
       }
     };
 
     console.log("---------------- SYNC DEBUG ----------------");
     console.log("Sending payload to:", url);
-    console.log(`Summary: ${units.length} Units, ${campuses.length} Campuses, ${tools.length} Tools, ${warehouse.length} Warehouse Items`);
-    console.log("Payload Data:", JSON.stringify(payload.data, null, 2));
+    console.log(`Summary: ${finalUnits.length} Units, ${finalCampuses.length} Campuses, ${finalTools.length} Tools, ${finalWarehouse.length} Warehouse Items`);
+    console.log("Payload Object:", JSON.stringify(payload.data, null, 2));
     console.log("--------------------------------------------");
 
     const response = await fetch(url, {
