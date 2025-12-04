@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MaintenanceUnit, Role, Status, Tool, WarehouseItem } from './types';
-import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus, getTools, getWarehouse, fetchFromGoogleSheets, saveUnitToCloud } from './services/sheetService';
+import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus, getTools, getWarehouse, fetchFromGoogleSheets, saveUnitToCloud, syncWithGoogleSheets } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
 import CreateUnitModal from './components/CreateUnitModal';
@@ -93,6 +93,8 @@ const App: React.FC = () => {
   const handleAddCampus = async (name: string) => {
     const newCampuses = await addCampus(name);
     setAvailableCampuses(newCampuses);
+    // Push new campus structure to cloud immediately
+    await syncWithGoogleSheets();
   };
 
   const handleRenameCampus = async (oldName: string, newName: string) => {
@@ -100,6 +102,8 @@ const App: React.FC = () => {
     setAvailableCampuses(campuses);
     setUnits(units);
     if (selectedCampus === oldName) setSelectedCampus(newName);
+    // Push structure update
+    await syncWithGoogleSheets();
   };
 
   const handleDeleteCampus = async (name: string) => {
@@ -107,6 +111,8 @@ const App: React.FC = () => {
     setAvailableCampuses(campuses);
     setUnits(units);
     if (selectedCampus === name) setSelectedCampus('TODAS');
+    // Push structure update
+    await syncWithGoogleSheets();
   };
 
   // --- Unit Management Handlers ---
