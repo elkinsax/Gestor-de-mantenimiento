@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle, CloudDownload } from 'lucide-react';
+import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle, DownloadCloud } from 'lucide-react';
 import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits, getCampuses, getTools, getWarehouse, fetchFromGoogleSheets } from '../services/sheetService';
 
 interface AdminSettingsModalProps {
@@ -141,7 +141,7 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
                 disabled={syncStatus === 'loading'}
                 className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg transition disabled:opacity-70 text-sm"
               >
-                {syncStatus === 'loading' ? <RefreshCw size={18} className="animate-spin" /> : <CloudDownload size={18} />}
+                {syncStatus === 'loading' ? <RefreshCw size={18} className="animate-spin" /> : <DownloadCloud size={18} />}
                 Descargar (Nube)
               </button>
 

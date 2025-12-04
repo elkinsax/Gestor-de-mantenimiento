@@ -1,6 +1,6 @@
 import React from 'react';
 import { MaintenanceUnit, Tool, WarehouseItem, Status } from '../types';
-import { PieChart, Activity, AlertTriangle, CheckCircle, Clock, Wrench, Package, Building } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle, Clock, Wrench, Building } from 'lucide-react';
 
 interface GeneralDashboardProps {
   units: MaintenanceUnit[];
