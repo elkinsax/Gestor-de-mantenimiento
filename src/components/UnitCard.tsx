@@ -1,7 +1,7 @@
 import React from 'react';
 import { MaintenanceUnit, Status } from '../types';
 import Carousel from './Carousel';
-import { Edit2, Package, AlertTriangle } from 'lucide-react';
+import { Edit2, Package, AlertTriangle, Send } from 'lucide-react';
 
 interface UnitCardProps {
   unit: MaintenanceUnit;
@@ -15,6 +15,7 @@ const UnitCard: React.FC<UnitCardProps> = ({ unit, onClick }) => {
       case Status.OPERATIVE: return 'bg-blue-600';
       case Status.PREVENTION: return 'bg-orange-500';
       case Status.REPAIR: return 'bg-red-600';
+      case Status.REQUEST: return 'bg-purple-600';
       default: return 'bg-gray-400';
     }
   };
@@ -24,6 +25,7 @@ const UnitCard: React.FC<UnitCardProps> = ({ unit, onClick }) => {
       case Status.OPERATIVE: return 'Operativo';
       case Status.PREVENTION: return 'Prevención';
       case Status.REPAIR: return 'Reparación';
+      case Status.REQUEST: return 'Solicitud';
     }
   };
 
@@ -61,6 +63,12 @@ const UnitCard: React.FC<UnitCardProps> = ({ unit, onClick }) => {
                      <div className="flex items-center gap-1 text-red-600 font-medium">
                         <AlertTriangle size={14} />
                         <span>Atención Requerida</span>
+                     </div>
+                )}
+                 {unit.status === Status.REQUEST && (
+                     <div className="flex items-center gap-1 text-purple-600 font-medium">
+                        <Send size={14} />
+                        <span>Revisión Pendiente</span>
                      </div>
                 )}
             </div>

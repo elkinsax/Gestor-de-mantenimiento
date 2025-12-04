@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
-import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits, getCampuses, getTools, getWarehouse } from '../services/sheetService';
+import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle, CloudDownload } from 'lucide-react';
+import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits, getCampuses, getTools, getWarehouse, fetchFromGoogleSheets } from '../services/sheetService';
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -29,11 +29,27 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
     setTimeout(() => setSyncStatus('idle'), 2000);
   };
 
+  // Sync UP (Upload)
   const handleSync = async () => {
     setSyncStatus('loading');
     const result = await syncWithGoogleSheets();
     setSyncStatus(result.success ? 'success' : 'error');
     setStatusMessage(result.message);
+  };
+
+  // Sync DOWN (Download from Cloud)
+  const handleDownloadCloud = async () => {
+    setSyncStatus('loading');
+    if (confirm("¡Atención! Esto reemplazará todos los datos locales con los datos de la nube. ¿Estás seguro?")) {
+      const result = await fetchFromGoogleSheets();
+      setSyncStatus(result.success ? 'success' : 'error');
+      setStatusMessage(result.message);
+      if (result.success) {
+        setTimeout(() => window.location.reload(), 1500); // Reload to reflect changes
+      }
+    } else {
+      setSyncStatus('idle');
+    }
   };
 
   const handleExportJson = async () => {
@@ -114,18 +130,27 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
               <button 
                 onClick={handleSync}
                 disabled={syncStatus === 'loading'}
-                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition disabled:opacity-70"
+                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition disabled:opacity-70 text-sm"
               >
                 {syncStatus === 'loading' ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                Sincronizar
+                Sincronizar (Subir)
+              </button>
+
+              <button 
+                onClick={handleDownloadCloud}
+                disabled={syncStatus === 'loading'}
+                className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg transition disabled:opacity-70 text-sm"
+              >
+                {syncStatus === 'loading' ? <RefreshCw size={18} className="animate-spin" /> : <CloudDownload size={18} />}
+                Descargar (Nube)
               </button>
 
               <button 
                 onClick={handleExportJson}
-                className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 py-3 px-4 rounded-lg transition"
+                className="col-span-2 flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 py-3 px-4 rounded-lg transition text-sm"
               >
                 <Download size={18} />
-                Exportar Todo
+                Exportar Backup JSON
               </button>
             </div>
           </div>

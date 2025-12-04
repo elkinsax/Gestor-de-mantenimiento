@@ -222,3 +222,54 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
     };
   }
 };
+
+/**
+ * Downloads data from Google Sheets (via GET request) and replaces local storage
+ */
+export const fetchFromGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
+  const url = getApiConfig();
+  if (!url) {
+    return { success: false, message: 'No se ha configurado la URL del API.' };
+  }
+
+  try {
+    console.log("Fetching data from:", url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+    }
+
+    const textResult = await response.text();
+    let jsonResult;
+    try {
+      jsonResult = JSON.parse(textResult);
+    } catch (e) {
+      throw new Error("La respuesta del servidor no es un JSON válido.");
+    }
+
+    if (jsonResult.status === 'success' && jsonResult.data) {
+      const { units, campuses, tools, warehouse } = jsonResult.data;
+      
+      // Save to LocalStorage
+      if (Array.isArray(units)) localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
+      if (Array.isArray(campuses)) localStorage.setItem(CAMPUS_KEY, JSON.stringify(campuses));
+      if (Array.isArray(tools)) localStorage.setItem(TOOLS_KEY, JSON.stringify(tools));
+      if (Array.isArray(warehouse)) localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(warehouse));
+
+      return { success: true, message: 'Datos descargados y actualizados correctamente.' };
+    } else {
+      return { success: false, message: jsonResult.message || 'Error desconocido al obtener datos.' };
+    }
+
+  } catch (error: any) {
+    console.error("Fetch Error:", error);
+    return { 
+      success: false, 
+      message: `Error de conexión: ${error.message || 'Desconocido'}.` 
+    };
+  }
+};

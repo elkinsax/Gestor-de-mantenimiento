@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MaintenanceUnit, Role, Status, InventoryItem, MaterialRequest } from '../types';
 import Carousel from './Carousel';
-import { X, Save, Plus, DollarSign, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { X, Save, Plus, DollarSign, Package, AlertTriangle, CheckCircle, Clock, QrCode, Send } from 'lucide-react';
 
 interface UnitModalProps {
   unit: MaintenanceUnit;
@@ -13,28 +13,35 @@ interface UnitModalProps {
 
 const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSave }) => {
   const [editedUnit, setEditedUnit] = useState<MaintenanceUnit>(unit);
-  const [activeTab, setActiveTab] = useState<'info' | 'inventory' | 'requests'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'inventory' | 'requests' | 'qr'>('info');
   const [newRequestItem, setNewRequestItem] = useState('');
   const [newRequestCost, setNewRequestCost] = useState(0);
 
   useEffect(() => {
     setEditedUnit(unit);
+    // Default to info tab when opening
+    setActiveTab('info');
   }, [unit]);
 
   if (!isOpen) return null;
 
-  // Permissions
-  const canEdit = role === 'MAINTENANCE' || role === 'ADMIN';
+  // Permissions Logic
+  const canEditStructure = role === 'MAINTENANCE' || role === 'ADMIN';
   const isTreasury = role === 'TREASURY' || role === 'ADMIN'; 
+  const isSolicitor = role === 'SOLICITOR';
+
+  // For solicitors, default view is limited
+  const showInventory = !isSolicitor;
+  const showCosts = !isSolicitor;
 
   const handleStatusChange = (status: Status) => {
-    if (canEdit) {
+    if (canEditStructure) {
       setEditedUnit({ ...editedUnit, status });
     }
   };
 
   const handleInventoryChange = (id: string, field: keyof InventoryItem, value: any) => {
-    if (!canEdit) return;
+    if (!canEditStructure) return;
     const newInventory = editedUnit.inventory.map(item => 
       item.id === id ? { ...item, [field]: value } : item
     );
@@ -84,7 +91,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1024; // Resize large mobile photos to max 1024px width
+          const MAX_WIDTH = 1024;
           const MAX_HEIGHT = 1024;
           let width = img.width;
           let height = img.height;
@@ -105,8 +112,6 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Compress to JPEG with 0.7 quality (drastically reduces size from MBs to KBs)
           resolve(canvas.toDataURL('image/jpeg', 0.7)); 
         };
         img.onerror = (error) => reject(error);
@@ -129,13 +134,26 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
   };
 
   const handleDeleteImage = (index: number) => {
-    if (!canEdit) return;
+    // Both Maintenance and Solicitor can delete their uploaded photos (conceptually)
+    // But let's restrict Solicitor to only be able to add generally, unless we track who added what.
+    // For simplicity, allow delete if in edit mode.
+    if (!canEditStructure && !isSolicitor) return;
+    
     const newImages = editedUnit.images.filter((_, i) => i !== index);
     setEditedUnit(prev => ({
       ...prev,
       images: newImages
     }));
   };
+
+  const handleSolicitorSubmit = () => {
+    const updated = { ...editedUnit, status: Status.REQUEST };
+    onSave(updated);
+  };
+
+  // QR Code URL Generation
+  const qrDataUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?unitId=${editedUnit.id}`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrDataUrl)}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -144,8 +162,11 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
         {/* Header */}
         <div className="flex justify-between items-center p-5 border-b sticky top-0 bg-white z-10">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{editedUnit.name}</h2>
-            <p className="text-sm text-gray-500">{editedUnit.campus} • {editedUnit.type} • ID: {editedUnit.id}</p>
+            <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-gray-900">{editedUnit.name}</h2>
+                {isSolicitor && <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-bold">MODO SOLICITUD</span>}
+            </div>
+            <p className="text-sm text-gray-500">{editedUnit.campus} • {editedUnit.type}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
             <X size={24} />
@@ -162,42 +183,50 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                 <Carousel 
                   images={editedUnit.images} 
                   heightClass="h-72" 
-                  editable={canEdit}
+                  editable={canEditStructure || isSolicitor}
                   onUpload={handleImageUpload}
                   onDelete={handleDeleteImage}
                 />
               </div>
 
-              {/* Semaphore Controls */}
-              <div className="bg-gray-50 p-4 rounded-lg border">
-                <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Estado Actual (Semaforización)</h3>
-                <div className="flex gap-2">
-                  {(Object.keys(Status) as Array<keyof typeof Status>).map((key) => {
-                    const statusValue = Status[key];
-                    const isSelected = editedUnit.status === statusValue;
-                    const baseClass = "flex-1 py-3 px-2 rounded-md text-sm font-medium transition-all duration-200 border-2 flex flex-col items-center gap-1";
-                    
-                    let activeClass = "";
-                    if (statusValue === Status.OPERATIVE) activeClass = isSelected ? "border-blue-600 bg-blue-50 text-blue-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
-                    if (statusValue === Status.PREVENTION) activeClass = isSelected ? "border-orange-500 bg-orange-50 text-orange-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
-                    if (statusValue === Status.REPAIR) activeClass = isSelected ? "border-red-600 bg-red-50 text-red-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
+              {/* Semaphore Controls (Hidden or Modified for Solicitor) */}
+              {!isSolicitor ? (
+                  <div className="bg-gray-50 p-4 rounded-lg border">
+                    <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Estado Actual</h3>
+                    <div className="flex gap-2 flex-wrap">
+                      {(Object.keys(Status) as Array<keyof typeof Status>).map((key) => {
+                        const statusValue = Status[key];
+                        const isSelected = editedUnit.status === statusValue;
+                        const baseClass = "flex-1 min-w-[80px] py-3 px-1 rounded-md text-sm font-medium transition-all duration-200 border-2 flex flex-col items-center gap-1";
+                        
+                        let activeClass = "";
+                        if (statusValue === Status.OPERATIVE) activeClass = isSelected ? "border-blue-600 bg-blue-50 text-blue-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
+                        if (statusValue === Status.PREVENTION) activeClass = isSelected ? "border-orange-500 bg-orange-50 text-orange-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
+                        if (statusValue === Status.REPAIR) activeClass = isSelected ? "border-red-600 bg-red-50 text-red-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
+                        if (statusValue === Status.REQUEST) activeClass = isSelected ? "border-purple-600 bg-purple-50 text-purple-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
 
-                    return (
-                      <button
-                        key={key}
-                        disabled={!canEdit}
-                        onClick={() => handleStatusChange(statusValue)}
-                        className={`${baseClass} ${activeClass} ${!canEdit ? 'opacity-70 cursor-not-allowed' : ''}`}
-                      >
-                         {statusValue === Status.OPERATIVE && <CheckCircle size={20} className={isSelected ? 'text-blue-600' : 'text-gray-400'} />}
-                         {statusValue === Status.PREVENTION && <Clock size={20} className={isSelected ? 'text-orange-500' : 'text-gray-400'} />}
-                         {statusValue === Status.REPAIR && <AlertTriangle size={20} className={isSelected ? 'text-red-600' : 'text-gray-400'} />}
-                        <span>{statusValue === Status.OPERATIVE ? 'Operativo' : statusValue === Status.PREVENTION ? 'Prevención' : 'Reparación'}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                        return (
+                          <button
+                            key={key}
+                            disabled={!canEditStructure}
+                            onClick={() => handleStatusChange(statusValue)}
+                            className={`${baseClass} ${activeClass} ${!canEditStructure ? 'opacity-70 cursor-not-allowed' : ''}`}
+                          >
+                            {statusValue === Status.OPERATIVE && <CheckCircle size={18} />}
+                            {statusValue === Status.PREVENTION && <Clock size={18} />}
+                            {statusValue === Status.REPAIR && <AlertTriangle size={18} />}
+                            {statusValue === Status.REQUEST && <Send size={18} />}
+                            <span className="text-[10px] uppercase">{statusValue === Status.REQUEST ? 'Solicitud' : statusValue === Status.OPERATIVE ? 'Operativo' : statusValue === Status.PREVENTION ? 'Prevención' : 'Reparación'}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+              ) : (
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 text-purple-800 text-sm">
+                      <strong>Instrucciones:</strong> Tome fotos de la incidencia y describa el problema abajo. Luego presione "Enviar Solicitud".
+                  </div>
+              )}
 
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">Bitácora / Descripción</label>
@@ -205,7 +234,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                   className="w-full border rounded-md p-3 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition"
                   rows={5}
                   value={editedUnit.description}
-                  disabled={!canEdit}
+                  disabled={!canEditStructure && !isSolicitor}
                   onChange={(e) => setEditedUnit({...editedUnit, description: e.target.value})}
                   placeholder="Descripción del estado, novedades o requerimientos..."
                 />
@@ -214,27 +243,57 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
 
             {/* Right Column: Tabs */}
             <div className="border-l border-gray-100 flex flex-col h-full bg-gray-50/50">
-              <div className="flex border-b bg-white">
-                <button 
-                  onClick={() => setActiveTab('inventory')}
-                  className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'inventory' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                  <Package size={18} /> Inventario
-                </button>
-                <button 
-                  onClick={() => setActiveTab('requests')}
-                  className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'requests' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                  <DollarSign size={18} /> Costos & Solicitudes
-                </button>
+              <div className="flex border-b bg-white overflow-x-auto">
+                 {showInventory && (
+                    <button 
+                    onClick={() => setActiveTab('inventory')}
+                    className={`flex-1 min-w-[100px] py-4 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'inventory' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                    <Package size={18} /> Inventario
+                    </button>
+                 )}
+                 {showCosts && (
+                    <button 
+                    onClick={() => setActiveTab('requests')}
+                    className={`flex-1 min-w-[100px] py-4 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'requests' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                    <DollarSign size={18} /> Costos
+                    </button>
+                 )}
+                 {/* Default Info Tab (Hidden if no content other than left col, but let's keep it for QR) */}
+                 <button 
+                    onClick={() => setActiveTab('qr')}
+                    className={`flex-1 min-w-[100px] py-4 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'qr' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                 >
+                    <QrCode size={18} /> Código QR
+                 </button>
               </div>
 
               <div className="p-6 flex-1 overflow-y-auto">
-                {activeTab === 'inventory' && (
+                
+                {/* QR TAB */}
+                {activeTab === 'qr' && (
+                    <div className="flex flex-col items-center justify-center h-full space-y-4">
+                        <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-200">
+                             <img src={qrImageUrl} alt="QR Code" className="w-48 h-48 mix-blend-multiply" />
+                        </div>
+                        <div className="text-center max-w-xs">
+                            <h4 className="font-bold text-gray-900">Acceso Rápido</h4>
+                            <p className="text-sm text-gray-500 mt-1">Imprima este código y péguelo en la unidad ({editedUnit.name}) para que los usuarios puedan reportar incidencias escaneándolo.</p>
+                            
+                            <a href={qrDataUrl} target="_blank" rel="noreferrer" className="block mt-4 text-xs text-blue-600 underline truncate">
+                                {qrDataUrl}
+                            </a>
+                        </div>
+                    </div>
+                )}
+
+                {/* INVENTORY TAB */}
+                {activeTab === 'inventory' && showInventory && (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center mb-4">
                         <h4 className="font-semibold text-gray-900">Activos Fijos</h4>
-                        {canEdit && (
+                        {canEditStructure && (
                             <button onClick={addInventoryItem} className="text-xs bg-black text-white px-3 py-1.5 rounded hover:bg-gray-800 transition flex items-center gap-1">
                                 <Plus size={14} /> Agregar Item
                             </button>
@@ -244,7 +303,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                     {editedUnit.inventory.map((item) => (
                       <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex items-center gap-4">
                         <div className="flex-1">
-                          {canEdit ? (
+                          {canEditStructure ? (
                             <input 
                               value={item.name} 
                               onChange={(e) => handleInventoryChange(item.id, 'name', e.target.value)}
@@ -257,7 +316,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                         
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500">Cant:</span>
-                             {canEdit ? (
+                             {canEditStructure ? (
                                 <input 
                                   type="number"
                                   value={item.quantity}
@@ -270,7 +329,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                         </div>
 
                         <div className="w-24">
-                            {canEdit ? (
+                            {canEditStructure ? (
                                 <select 
                                     value={item.condition}
                                     onChange={(e) => handleInventoryChange(item.id, 'condition', e.target.value)}
@@ -297,10 +356,11 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                   </div>
                 )}
 
-                {activeTab === 'requests' && (
+                {/* REQUESTS TAB */}
+                {activeTab === 'requests' && showCosts && (
                   <div className="space-y-6">
                     {/* Add Request Form */}
-                    {canEdit && (
+                    {canEditStructure && (
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                         <h4 className="text-sm font-semibold text-blue-800 mb-3">Nueva Solicitud / Factura</h4>
                         <div className="flex flex-col gap-3">
@@ -382,7 +442,16 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
             >
                 Cancelar
             </button>
-            {(canEdit || isTreasury) && (
+            {isSolicitor && (
+                 <button 
+                    onClick={handleSolicitorSubmit}
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-md shadow-sm transition flex items-center gap-2"
+                >
+                    <Send size={16} />
+                    Enviar Solicitud
+                </button>
+            )}
+            {(canEditStructure || isTreasury) && (
                 <button 
                     onClick={() => onSave(editedUnit)}
                     className="px-6 py-2.5 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-md shadow-sm transition flex items-center gap-2"
