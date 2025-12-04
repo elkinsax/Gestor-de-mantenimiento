@@ -54,3 +54,7 @@ export interface MaintenanceUnit {
   requests: MaterialRequest[];
   lastUpdated: string;
 }
+
+export interface AuthData {
+  [role: string]: string; // Role key -> Password value
+}

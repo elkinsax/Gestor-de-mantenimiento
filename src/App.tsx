@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MaintenanceUnit, Role, Status, Tool, WarehouseItem } from './types';
-import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus, getTools, getWarehouse } from './services/sheetService';
+import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus, getTools, getWarehouse, fetchFromGoogleSheets, saveUnitToCloud } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
 import CreateUnitModal from './components/CreateUnitModal';
@@ -36,10 +36,21 @@ const App: React.FC = () => {
   useEffect(() => {
     loadData();
     checkUrlParams();
+
+    // Auto-polling: Check for cloud updates every 30 seconds
+    const interval = setInterval(async () => {
+        const result = await fetchFromGoogleSheets();
+        if (result.success) {
+            console.log("Auto-poll success: Data refreshed from cloud.");
+            loadData(); // Reload local state from updated storage
+        }
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
+    // Silent load to avoid full spinner on polling
     const [unitsData, campusesData, toolsData, warehouseData] = await Promise.all([
       getUnits(), 
       getCampuses(),
@@ -50,7 +61,7 @@ const App: React.FC = () => {
     setAvailableCampuses(campusesData);
     setTools(toolsData);
     setWarehouse(warehouseData);
-    setLoading(false);
+    if (loading) setLoading(false);
   };
 
   const checkUrlParams = async () => {
@@ -58,14 +69,12 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const unitId = params.get('unitId');
     if (unitId) {
-      // Small delay to ensure data is loaded from localstorage first
       await new Promise(r => setTimeout(r, 500));
       const unitsData = await getUnits();
       const found = unitsData.find(u => u.id === unitId);
       if (found) {
         setSelectedUnit(found);
-        // If coming via QR code and not logged in, assume Solicitor or ask
-        setRole('SOLICITOR');
+        setRole('SOLICITOR'); // Default to solicitor for QR scans if not logged in
       }
     }
   };
@@ -74,6 +83,9 @@ const App: React.FC = () => {
     const newUnits = await updateUnit(updatedUnit);
     setUnits(newUnits);
     setSelectedUnit(null); // Close modal
+    
+    // Auto-Sync: Push changes to cloud immediately
+    saveUnitToCloud(updatedUnit);
   };
 
   // --- Campus Management Handlers ---
@@ -106,12 +118,13 @@ const App: React.FC = () => {
     if (selectedCampus !== 'TODAS' && selectedCampus !== newUnit.campus) {
         setSelectedCampus(newUnit.campus);
     }
+    // Also sync new unit creation
+    saveUnitToCloud(newUnit);
   };
 
   const handleLogout = () => {
     setRole(null);
     setShowGlobalDashboard(false);
-    // Clear URL params if any
     window.history.pushState({}, document.title, window.location.pathname);
   };
 
@@ -188,7 +201,7 @@ const App: React.FC = () => {
                   <span className="text-xs text-gray-400 hidden md:block">
                     {role === 'MAINTENANCE' && 'Jefe Mantenimiento'}
                     {role === 'TREASURY' && 'Tesorería'}
-                    {role === 'ADMIN' && 'Administrador'}
+                    {role === 'ADMIN' && 'Admin'}
                     {role === 'SOLICITOR' && 'Solicitante'}
                     {role === 'VIEWER' && 'Observador'}
                   </span>

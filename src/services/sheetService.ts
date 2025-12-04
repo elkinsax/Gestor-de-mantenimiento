@@ -1,5 +1,5 @@
 import { INITIAL_UNITS, INITIAL_TOOLS, INITIAL_WAREHOUSE } from '../constants';
-import { MaintenanceUnit, Tool, WarehouseItem } from '../types';
+import { MaintenanceUnit, Tool, WarehouseItem, AuthData } from '../types';
 
 /**
  * Service to manage data persistence and API synchronization.
@@ -10,6 +10,7 @@ const STORAGE_KEY = 'school_maint_data_v1';
 const CAMPUS_KEY = 'school_maint_campuses_v1';
 const TOOLS_KEY = 'school_maint_tools_v1';
 const WAREHOUSE_KEY = 'school_maint_warehouse_v1';
+const AUTH_KEY = 'school_maint_auth_v1';
 const API_CONFIG_KEY = 'school_maint_api_config_v1';
 
 // --- UNITS ---
@@ -140,7 +141,35 @@ export const resetData = () => {
   localStorage.removeItem(CAMPUS_KEY);
   localStorage.removeItem(TOOLS_KEY);
   localStorage.removeItem(WAREHOUSE_KEY);
+  localStorage.removeItem(AUTH_KEY);
   window.location.reload();
+};
+
+// --- AUTH & SECURITY ---
+
+export const getAuthData = (): AuthData => {
+  const stored = localStorage.getItem(AUTH_KEY);
+  if (stored) return JSON.parse(stored);
+  
+  // Default Passwords
+  const defaults = {
+    'ADMIN': 'admin123',
+    'MAINTENANCE': '1234',
+    'TREASURY': '1234',
+    'SOLICITOR': '1234'
+  };
+  localStorage.setItem(AUTH_KEY, JSON.stringify(defaults));
+  return defaults;
+};
+
+export const saveAuthData = (data: AuthData) => {
+  localStorage.setItem(AUTH_KEY, JSON.stringify(data));
+};
+
+export const checkPassword = (role: string, pass: string): boolean => {
+  if (role === 'VIEWER') return true;
+  const auth = getAuthData();
+  return auth[role] === pass;
 };
 
 // --- GOOGLE SHEETS / BACKEND CONNECTION ---
@@ -151,6 +180,13 @@ export const getApiConfig = (): string => {
 
 export const saveApiConfig = (url: string) => {
   localStorage.setItem(API_CONFIG_KEY, url.trim());
+};
+
+// Triggered when critical data changes (e.g. QR request)
+export const saveUnitToCloud = async (unit: MaintenanceUnit) => {
+   // For now, we sync everything to ensure consistency
+   console.log(`Auto-syncing triggered by update to unit: ${unit.name}`);
+   await syncWithGoogleSheets();
 };
 
 export const syncWithGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
@@ -164,14 +200,14 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
     const campuses = await getCampuses();
     const tools = await getTools();
     const warehouse = await getWarehouse();
+    const auth = getAuthData();
     
-    // Safety checks to ensure we always send arrays, even if empty
+    // Safety checks
     const finalUnits = Array.isArray(units) ? units : [];
     const finalCampuses = Array.isArray(campuses) ? campuses : [];
     const finalTools = Array.isArray(tools) ? tools : [];
     const finalWarehouse = Array.isArray(warehouse) ? warehouse : [];
 
-    // Construct the payload with ALL data types
     const payload = {
       timestamp: new Date().toISOString(),
       action: 'SYNC_UP',
@@ -179,14 +215,14 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
         units: finalUnits,
         campuses: finalCampuses,
         tools: finalTools,
-        warehouse: finalWarehouse
+        warehouse: finalWarehouse,
+        auth: auth
       }
     };
 
     console.log("---------------- SYNC DEBUG ----------------");
     console.log("Sending payload to:", url);
-    console.log(`Summary: ${finalUnits.length} Units, ${finalCampuses.length} Campuses, ${finalTools.length} Tools, ${finalWarehouse.length} Warehouse Items`);
-    console.log("Payload Object:", JSON.stringify(payload.data, null, 2));
+    console.log(`Summary: ${finalUnits.length} Units, ${finalCampuses.length} Campuses`);
     console.log("--------------------------------------------");
 
     const response = await fetch(url, {
@@ -233,7 +269,7 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
   }
 
   try {
-    console.log("Fetching data from:", url);
+    // console.log("Fetching data from cloud..."); 
     
     const response = await fetch(url, {
       method: 'GET',
@@ -252,13 +288,14 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
     }
 
     if (jsonResult.status === 'success' && jsonResult.data) {
-      const { units, campuses, tools, warehouse } = jsonResult.data;
+      const { units, campuses, tools, warehouse, auth } = jsonResult.data;
       
       // Save to LocalStorage
       if (Array.isArray(units)) localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
       if (Array.isArray(campuses)) localStorage.setItem(CAMPUS_KEY, JSON.stringify(campuses));
       if (Array.isArray(tools)) localStorage.setItem(TOOLS_KEY, JSON.stringify(tools));
       if (Array.isArray(warehouse)) localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(warehouse));
+      if (auth && typeof auth === 'object') localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
 
       return { success: true, message: 'Datos descargados y actualizados correctamente.' };
     } else {
