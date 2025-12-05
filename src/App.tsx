@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MaintenanceUnit, Role, Status, Tool, WarehouseItem } from './types';
-import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus, getTools, getWarehouse, fetchFromGoogleSheets, saveUnitToCloud, syncWithGoogleSheets } from './services/sheetService';
+import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus, getTools, getWarehouse, fetchFromGoogleSheets, saveUnitToCloud, syncWithGoogleSheets, getApiConfig } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
 import CreateUnitModal from './components/CreateUnitModal';
@@ -9,7 +9,7 @@ import AdminSettingsModal from './components/AdminSettingsModal';
 import WarehouseModal from './components/WarehouseModal';
 import LoginScreen from './components/LoginScreen';
 import GeneralDashboard from './components/GeneralDashboard';
-import { Settings, Filter, MapPin, Plus, Building, Package, LayoutDashboard, ArrowLeft, LogOut } from 'lucide-react';
+import { Settings, Filter, MapPin, Plus, Building, Package, LayoutDashboard, ArrowLeft, LogOut, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 
 const App: React.FC = () => {
   const [units, setUnits] = useState<MaintenanceUnit[]>([]);
@@ -21,6 +21,7 @@ const App: React.FC = () => {
   // Auth & View State
   const [role, setRole] = useState<Role | null>(null);
   const [showGlobalDashboard, setShowGlobalDashboard] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState<'connected' | 'disconnected' | 'syncing'>('disconnected');
 
   // Modals state
   const [selectedUnit, setSelectedUnit] = useState<MaintenanceUnit | null>(null);
@@ -34,24 +35,44 @@ const App: React.FC = () => {
   const [selectedCampus, setSelectedCampus] = useState<string>('TODAS');
 
   useEffect(() => {
-    loadData();
+    initialLoad();
     checkUrlParams();
 
     // Auto-polling: Check for cloud updates every 5 seconds (Near Real-time)
     const interval = setInterval(async () => {
-        const result = await fetchFromGoogleSheets();
-        if (result.success) {
-            // console.log("Auto-poll success: Data refreshed from cloud.");
-            // Only reload if successful to avoid flickering on errors
-            loadData(); 
+        // Only poll if we have an API URL configured
+        if (getApiConfig()) {
+          const result = await fetchFromGoogleSheets();
+          if (result.success) {
+              setCloudStatus('connected');
+              loadData(); 
+          } else {
+              setCloudStatus('disconnected');
+          }
         }
     }, 5000);
 
     return () => clearInterval(interval);
   }, []);
 
+  const initialLoad = async () => {
+    // 1. Load Local Data First (Instant)
+    await loadData();
+    
+    // 2. Try to fetch from cloud immediately
+    if (getApiConfig()) {
+      setCloudStatus('syncing');
+      const result = await fetchFromGoogleSheets();
+      if (result.success) {
+        setCloudStatus('connected');
+        await loadData(); // Reload with merged data
+      } else {
+        setCloudStatus('disconnected');
+      }
+    }
+  };
+
   const loadData = async () => {
-    // Silent load to avoid full spinner on polling
     const [unitsData, campusesData, toolsData, warehouseData] = await Promise.all([
       getUnits(), 
       getCampuses(),
@@ -66,7 +87,6 @@ const App: React.FC = () => {
   };
 
   const checkUrlParams = async () => {
-    // Check if there is a unitId in the URL (QR Code scan)
     const params = new URLSearchParams(window.location.search);
     const unitId = params.get('unitId');
     if (unitId) {
@@ -75,13 +95,13 @@ const App: React.FC = () => {
       const found = unitsData.find(u => u.id === unitId);
       if (found) {
         setSelectedUnit(found);
-        setRole('SOLICITOR'); // Default to solicitor for QR scans if not logged in
+        setRole('SOLICITOR');
       }
     }
   };
 
   const handleSaveUnit = async (unitToSave: MaintenanceUnit) => {
-    // Update timestamp to ensure this change wins in a merge
+    setCloudStatus('syncing');
     const updatedUnit = { 
       ...unitToSave, 
       lastUpdated: new Date().toISOString() 
@@ -89,43 +109,47 @@ const App: React.FC = () => {
 
     const newUnits = await updateUnit(updatedUnit);
     setUnits(newUnits);
-    setSelectedUnit(null); // Close modal
+    setSelectedUnit(null);
     
-    // Auto-Sync: Push changes to cloud immediately
-    saveUnitToCloud(updatedUnit);
+    // Auto-Sync
+    await saveUnitToCloud(updatedUnit);
+    setCloudStatus('connected');
   };
 
   // --- Campus Management Handlers ---
 
   const handleAddCampus = async (name: string) => {
+    setCloudStatus('syncing');
     const newCampuses = await addCampus(name);
     setAvailableCampuses(newCampuses);
-    // Push new campus structure to cloud immediately
     await syncWithGoogleSheets();
+    setCloudStatus('connected');
   };
 
   const handleRenameCampus = async (oldName: string, newName: string) => {
+    setCloudStatus('syncing');
     const { campuses, units } = await renameCampus(oldName, newName);
     setAvailableCampuses(campuses);
     setUnits(units);
     if (selectedCampus === oldName) setSelectedCampus(newName);
-    // Push structure update
     await syncWithGoogleSheets();
+    setCloudStatus('connected');
   };
 
   const handleDeleteCampus = async (name: string) => {
+    setCloudStatus('syncing');
     const { campuses, units } = await deleteCampus(name);
     setAvailableCampuses(campuses);
     setUnits(units);
     if (selectedCampus === name) setSelectedCampus('TODAS');
-    // Push structure update
     await syncWithGoogleSheets();
+    setCloudStatus('connected');
   };
 
   // --- Unit Management Handlers ---
 
   const handleCreateUnit = async (unitToCreate: MaintenanceUnit) => {
-    // Ensure accurate creation time
+    setCloudStatus('syncing');
     const newUnit = {
        ...unitToCreate,
        lastUpdated: new Date().toISOString()
@@ -137,8 +161,8 @@ const App: React.FC = () => {
     if (selectedCampus !== 'TODAS' && selectedCampus !== newUnit.campus) {
         setSelectedCampus(newUnit.campus);
     }
-    // Also sync new unit creation
-    saveUnitToCloud(newUnit);
+    await saveUnitToCloud(newUnit);
+    setCloudStatus('connected');
   };
 
   const handleLogout = () => {
@@ -189,6 +213,19 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
+               {/* Cloud Status Indicator */}
+               <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-900 rounded-full border border-gray-800" title={cloudStatus === 'connected' ? "Sincronizado con la nube" : "Sin conexión a la nube"}>
+                  {cloudStatus === 'syncing' && <RefreshCw size={14} className="text-yellow-400 animate-spin" />}
+                  {cloudStatus === 'connected' && <Cloud size={14} className="text-green-400" />}
+                  {cloudStatus === 'disconnected' && <CloudOff size={14} className="text-red-400" />}
+                  <span className={`text-xs font-medium ${
+                      cloudStatus === 'connected' ? 'text-green-400' : 
+                      cloudStatus === 'syncing' ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                      {cloudStatus === 'connected' ? 'En línea' : cloudStatus === 'syncing' ? 'Sync...' : 'Offline'}
+                  </span>
+               </div>
+
                {/* Global Dashboard Toggle */}
                {!showGlobalDashboard ? (
                  <button 
@@ -218,11 +255,11 @@ const App: React.FC = () => {
                
                <div className="flex items-center gap-2 border-l border-gray-700 pl-4">
                   <span className="text-xs text-gray-400 hidden md:block">
-                    {role === 'MAINTENANCE' && 'Jefe Mantenimiento'}
+                    {role === 'MAINTENANCE' && 'Jefe'}
                     {role === 'TREASURY' && 'Tesorería'}
                     {role === 'ADMIN' && 'Admin'}
                     {role === 'SOLICITOR' && 'Solicitante'}
-                    {role === 'VIEWER' && 'Observador'}
+                    {role === 'VIEWER' && 'Visitante'}
                   </span>
                   <button onClick={handleLogout} title="Salir" className="p-2 text-red-400 hover:text-red-300 transition">
                       <LogOut size={18} />
