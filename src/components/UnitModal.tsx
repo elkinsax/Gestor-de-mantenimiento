@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MaintenanceUnit, Role, Status, InventoryItem, MaterialRequest, WarehouseItem } from '../types';
 import Carousel from './Carousel';
-import { X, Save, Plus, DollarSign, Package, AlertTriangle, CheckCircle, Clock, QrCode, Send, Search } from 'lucide-react';
+import { X, Save, Plus, DollarSign, Package, AlertTriangle, CheckCircle, Clock, QrCode, Send } from 'lucide-react';
 
 interface UnitModalProps {
   unit: MaintenanceUnit;
