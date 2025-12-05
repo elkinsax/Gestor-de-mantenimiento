@@ -11,6 +11,9 @@ import LoginScreen from './components/LoginScreen';
 import GeneralDashboard from './components/GeneralDashboard';
 import { Settings, Filter, MapPin, Plus, Building, Package, LayoutDashboard, ArrowLeft, LogOut, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 
+// Package version from package.json (simulated)
+const APP_VERSION = "0.1.2";
+
 const App: React.FC = () => {
   const [units, setUnits] = useState<MaintenanceUnit[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
@@ -209,7 +212,10 @@ const App: React.FC = () => {
                     className="w-full h-full object-contain"
                   />
                 </div>
-              <span className="font-bold text-lg tracking-tight hidden sm:block">GESTOR DE MANTENIMIENTO</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-lg tracking-tight hidden sm:block leading-none mt-1">GESTOR DE MANTENIMIENTO</span>
+                <span className="text-[10px] text-gray-400 font-mono hidden sm:block">v{APP_VERSION}</span>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">

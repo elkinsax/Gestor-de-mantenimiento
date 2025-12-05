@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle, DownloadCloud, Lock, Users } from 'lucide-react';
-import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits, getCampuses, getTools, getWarehouse, fetchFromGoogleSheets, getAuthData, saveAuthData } from '../services/sheetService';
+import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle, DownloadCloud, Lock, Users, Trash2 } from 'lucide-react';
+import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits, getCampuses, getTools, getWarehouse, fetchFromGoogleSheets, getAuthData, saveAuthData, resetData } from '../services/sheetService';
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -80,6 +80,12 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
   const handleSavePasswords = () => {
     saveAuthData(authData);
     alert("Contraseñas actualizadas. Recuerda SINCRONIZAR para subirlas a la nube.");
+  };
+
+  const handleHardReset = () => {
+    if (confirm("⚠️ ¿ESTÁS SEGURO? \n\nEsto borrará TODA la configuración local, contraseñas y datos en este dispositivo. Úsalo si la app no carga correctamente.")) {
+        resetData();
+    }
   };
 
   return (
@@ -168,6 +174,19 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
                   </button>
                 </div>
               </div>
+
+               {/* Hard Reset Zone */}
+               <div className="border-t pt-6">
+                <h3 className="text-sm font-semibold text-red-700 mb-2">Zona de Peligro</h3>
+                <button 
+                    onClick={handleHardReset}
+                    className="w-full flex items-center justify-center gap-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 py-2 px-4 rounded-lg transition text-sm font-bold"
+                  >
+                    <Trash2 size={16} />
+                    Reinicio de Fábrica (Borrar Caché)
+                  </button>
+                  <p className="text-[10px] text-gray-500 mt-1 text-center">Usa esto si tu celular no sincroniza o presenta fallos.</p>
+               </div>
 
               {statusMessage && (
                 <div className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
