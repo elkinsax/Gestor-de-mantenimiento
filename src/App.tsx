@@ -37,14 +37,15 @@ const App: React.FC = () => {
     loadData();
     checkUrlParams();
 
-    // Auto-polling: Check for cloud updates every 30 seconds
+    // Auto-polling: Check for cloud updates every 5 seconds (Near Real-time)
     const interval = setInterval(async () => {
         const result = await fetchFromGoogleSheets();
         if (result.success) {
-            console.log("Auto-poll success: Data refreshed from cloud.");
-            loadData(); // Reload local state from updated storage
+            // console.log("Auto-poll success: Data refreshed from cloud.");
+            // Only reload if successful to avoid flickering on errors
+            loadData(); 
         }
-    }, 30000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -79,7 +80,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSaveUnit = async (updatedUnit: MaintenanceUnit) => {
+  const handleSaveUnit = async (unitToSave: MaintenanceUnit) => {
+    // Update timestamp to ensure this change wins in a merge
+    const updatedUnit = { 
+      ...unitToSave, 
+      lastUpdated: new Date().toISOString() 
+    };
+
     const newUnits = await updateUnit(updatedUnit);
     setUnits(newUnits);
     setSelectedUnit(null); // Close modal
@@ -117,7 +124,13 @@ const App: React.FC = () => {
 
   // --- Unit Management Handlers ---
 
-  const handleCreateUnit = async (newUnit: MaintenanceUnit) => {
+  const handleCreateUnit = async (unitToCreate: MaintenanceUnit) => {
+    // Ensure accurate creation time
+    const newUnit = {
+       ...unitToCreate,
+       lastUpdated: new Date().toISOString()
+    };
+
     const newUnits = await createUnit(newUnit);
     setUnits(newUnits);
     setIsCreateUnitOpen(false);

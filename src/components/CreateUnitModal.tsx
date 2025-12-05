@@ -30,7 +30,8 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({ isOpen, campuses, onC
       images: [], // Start empty
       inventory: [],
       requests: [],
-      lastUpdated: new Date().toISOString().split('T')[0]
+      // Critical for Smart Merge: Use full ISO string, not just date
+      lastUpdated: new Date().toISOString()
     };
 
     onSave(newUnit);

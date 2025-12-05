@@ -15,13 +15,48 @@ const API_CONFIG_KEY = 'school_maint_api_config_v1';
 
 // --- RACE CONDITION PROTECTION ---
 // Tracks the last time the user modified data locally.
-// If a cloud fetch happens too soon after a local edit, we skip the fetch
-// to prevent overwriting the new local data with old cloud data.
 let lastLocalModification = 0;
 
 const touchLocal = () => {
   lastLocalModification = Date.now();
 };
+
+// --- HELPER: SMART MERGE ---
+
+/**
+ * Merges local and cloud units based on lastUpdated timestamp.
+ * Retains the most recent version of each unit.
+ */
+function mergeUnits(localUnits: MaintenanceUnit[], cloudUnits: MaintenanceUnit[]): MaintenanceUnit[] {
+  const mergedMap = new Map<string, MaintenanceUnit>();
+
+  // Initialize with local units
+  localUnits.forEach(u => mergedMap.set(u.id, u));
+
+  // Merge cloud units
+  cloudUnits.forEach(cloudUnit => {
+    const localUnit = mergedMap.get(cloudUnit.id);
+    
+    if (!localUnit) {
+      // It's a new unit from the cloud (e.g. created on another device)
+      mergedMap.set(cloudUnit.id, cloudUnit);
+    } else {
+      // Conflict resolution: compare timestamps
+      // Timestamps should be ISO strings. 
+      const localTime = new Date(localUnit.lastUpdated).getTime();
+      const cloudTime = new Date(cloudUnit.lastUpdated).getTime();
+      
+      // If cloud version is newer (or equal), use it.
+      // If local version is newer (user just edited), keep local.
+      // Validating timestamps to avoid NaN issues with legacy data.
+      if (!isNaN(cloudTime) && (!isNaN(localTime) ? cloudTime > localTime : true)) {
+         mergedMap.set(cloudUnit.id, cloudUnit);
+      }
+    }
+  });
+
+  return Array.from(mergedMap.values());
+}
 
 // --- UNITS ---
 
@@ -240,11 +275,6 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
       }
     };
 
-    console.log("---------------- SYNC DEBUG ----------------");
-    console.log("Sending payload to:", url);
-    console.log(`Summary: ${finalUnits.length} Units, ${finalCampuses.length} Campuses`);
-    console.log("--------------------------------------------");
-
     const response = await fetch(url, {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -280,14 +310,12 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
 };
 
 /**
- * Downloads data from Google Sheets (via GET request) and replaces local storage
+ * Downloads data from Google Sheets (via GET request) and merges it with local storage
  */
 export const fetchFromGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
-  // CRITICAL: Prevent overwriting if local changes happened recently (15 seconds)
-  if (Date.now() - lastLocalModification < 15000) {
-     console.log("Skipping cloud fetch due to recent local changes.");
-     return { success: true, message: 'Sincronización pausada por cambios locales recientes.' };
-  }
+  
+  // NOTE: Smart merge removes the need for a 15s grace period blocking.
+  // We will download data, and the merge logic will decide what to keep.
 
   const url = getApiConfig();
   if (!url) {
@@ -295,8 +323,6 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
   }
 
   try {
-    // console.log("Fetching data from cloud..."); 
-    
     const response = await fetch(url, {
       method: 'GET',
     });
@@ -314,22 +340,35 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
     }
 
     if (jsonResult.status === 'success' && jsonResult.data) {
-      const { units, campuses, tools, warehouse, auth } = jsonResult.data;
+      const { units: cloudUnits, campuses: cloudCampuses, tools, warehouse, auth } = jsonResult.data;
       
-      // Save to LocalStorage
-      if (Array.isArray(units)) localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
-      if (Array.isArray(campuses)) localStorage.setItem(CAMPUS_KEY, JSON.stringify(campuses));
+      // 1. SMART MERGE UNITS
+      if (Array.isArray(cloudUnits)) {
+         const localUnits = await getUnits();
+         const mergedUnits = mergeUnits(localUnits, cloudUnits);
+         localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedUnits));
+      }
+
+      // 2. MERGE CAMPUSES (Union of sets)
+      if (Array.isArray(cloudCampuses)) {
+         const localCampuses = await getCampuses();
+         const mergedCampuses = Array.from(new Set([...localCampuses, ...cloudCampuses]));
+         localStorage.setItem(CAMPUS_KEY, JSON.stringify(mergedCampuses));
+      }
+
+      // 3. Simple overwrite for tools/warehouse/auth for now 
+      // (Can be improved with merge logic if needed later, but low conflict risk)
       if (Array.isArray(tools)) localStorage.setItem(TOOLS_KEY, JSON.stringify(tools));
       if (Array.isArray(warehouse)) localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(warehouse));
       if (auth && typeof auth === 'object') localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
 
-      return { success: true, message: 'Datos descargados y actualizados correctamente.' };
+      return { success: true, message: 'Datos sincronizados.' };
     } else {
       return { success: false, message: jsonResult.message || 'Error desconocido al obtener datos.' };
     }
 
   } catch (error: any) {
-    console.error("Fetch Error:", error);
+    // console.error("Fetch Error:", error);
     return { 
       success: false, 
       message: `Error de conexión: ${error.message || 'Desconocido'}.` 
