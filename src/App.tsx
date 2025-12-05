@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MaintenanceUnit, Role, Status, Tool, WarehouseItem } from './types';
-import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus, getTools, getWarehouse,  saveUnitToCloud, syncWithGoogleSheets } from './services/sheetService';
+import { getUnits, updateUnit, getCampuses, addCampus, createUnit, renameCampus, deleteCampus, getTools, getWarehouse, fetchFromGoogleSheets, saveUnitToCloud, syncWithGoogleSheets } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
 import CreateUnitModal from './components/CreateUnitModal';
@@ -34,29 +34,50 @@ const App: React.FC = () => {
   const [selectedCampus, setSelectedCampus] = useState<string>('TODAS');
 
   useEffect(() => {
-    async function loadCloudData() {
-      const endpoint = localStorage.getItem("backendUrl");
-      if (!endpoint) return;
+    loadData();
+    checkUrlParams();
 
-      try {
-        const res = await fetch(endpoint + "?v=" + Date.now());
-        const json = await res.json();
-
-        if (json.status === "success") {
-          localStorage.setItem("campuses", JSON.stringify(json.data.campuses));
-          localStorage.setItem("units", JSON.stringify(json.data.units));
-          localStorage.setItem("tools", JSON.stringify(json.data.tools));
-          localStorage.setItem("warehouse", JSON.stringify(json.data.warehouse));
+    // Auto-polling: Check for cloud updates every 30 seconds
+    const interval = setInterval(async () => {
+        const result = await fetchFromGoogleSheets();
+        if (result.success) {
+            console.log("Auto-poll success: Data refreshed from cloud.");
+            loadData(); // Reload local state from updated storage
         }
-      } catch (err) {
-        console.error("No se pudo obtener datos de la nube:", err);
-      }
-    }
+    }, 30000);
 
-    loadCloudData();
+    return () => clearInterval(interval);
   }, []);
 
+  const loadData = async () => {
+    // Silent load to avoid full spinner on polling
+    const [unitsData, campusesData, toolsData, warehouseData] = await Promise.all([
+      getUnits(), 
+      getCampuses(),
+      getTools(),
+      getWarehouse()
+    ]);
+    setUnits(unitsData);
+    setAvailableCampuses(campusesData);
+    setTools(toolsData);
+    setWarehouse(warehouseData);
+    if (loading) setLoading(false);
+  };
 
+  const checkUrlParams = async () => {
+    // Check if there is a unitId in the URL (QR Code scan)
+    const params = new URLSearchParams(window.location.search);
+    const unitId = params.get('unitId');
+    if (unitId) {
+      await new Promise(r => setTimeout(r, 500));
+      const unitsData = await getUnits();
+      const found = unitsData.find(u => u.id === unitId);
+      if (found) {
+        setSelectedUnit(found);
+        setRole('SOLICITOR'); // Default to solicitor for QR scans if not logged in
+      }
+    }
+  };
 
   const handleSaveUnit = async (updatedUnit: MaintenanceUnit) => {
     const newUnits = await updateUnit(updatedUnit);
