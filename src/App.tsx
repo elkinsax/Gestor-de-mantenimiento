@@ -434,6 +434,7 @@ const App: React.FC = () => {
         <UnitModal
           unit={selectedUnit}
           role={role}
+          warehouse={warehouse} 
           isOpen={!!selectedUnit}
           onClose={() => { setSelectedUnit(null); }}
           onSave={handleSaveUnit}

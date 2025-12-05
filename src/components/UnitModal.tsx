@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { MaintenanceUnit, Role, Status, InventoryItem, MaterialRequest } from '../types';
+import { MaintenanceUnit, Role, Status, InventoryItem, MaterialRequest, WarehouseItem } from '../types';
 import Carousel from './Carousel';
-import { X, Save, Plus, DollarSign, Package, AlertTriangle, CheckCircle, Clock, QrCode, Send } from 'lucide-react';
+import { X, Save, Plus, DollarSign, Package, AlertTriangle, CheckCircle, Clock, QrCode, Send, Search } from 'lucide-react';
 
 interface UnitModalProps {
   unit: MaintenanceUnit;
@@ -9,13 +9,17 @@ interface UnitModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (unit: MaintenanceUnit) => void;
+  warehouse?: WarehouseItem[]; // Optional prop for checking stock
 }
 
-const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSave }) => {
+const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSave, warehouse = [] }) => {
   const [editedUnit, setEditedUnit] = useState<MaintenanceUnit>(unit);
   const [activeTab, setActiveTab] = useState<'info' | 'inventory' | 'requests' | 'qr'>('info');
+  
+  // Request Form State
   const [newRequestItem, setNewRequestItem] = useState('');
   const [newRequestCost, setNewRequestCost] = useState(0);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
 
   useEffect(() => {
     setEditedUnit(unit);
@@ -58,6 +62,19 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
     setEditedUnit({ ...editedUnit, inventory: [...editedUnit.inventory, newItem] });
   };
 
+  const handleWarehouseSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const id = e.target.value;
+      setSelectedWarehouseId(id);
+      
+      const item = warehouse.find(w => w.id === id);
+      if (item) {
+          setNewRequestItem(item.name);
+          // Optional: You could set a default cost here if you tracked it
+      } else {
+          setNewRequestItem('');
+      }
+  };
+
   const addRequest = () => {
     if (!newRequestItem) return;
     const req: MaterialRequest = {
@@ -71,6 +88,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
     setEditedUnit({ ...editedUnit, requests: [...editedUnit.requests, req] });
     setNewRequestItem('');
     setNewRequestCost(0);
+    setSelectedWarehouseId(''); // Reset selector
   };
 
   const toggleApproval = (reqId: string) => {
@@ -134,9 +152,6 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
   };
 
   const handleDeleteImage = (index: number) => {
-    // Both Maintenance and Solicitor can delete their uploaded photos (conceptually)
-    // But let's restrict Solicitor to only be able to add generally, unless we track who added what.
-    // For simplicity, allow delete if in edit mode.
     if (!canEditStructure && !isSolicitor) return;
     
     const newImages = editedUnit.images.filter((_, i) => i !== index);
@@ -154,6 +169,9 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
   // QR Code URL Generation
   const qrDataUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?unitId=${editedUnit.id}`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrDataUrl)}`;
+
+  // Determine availability of currently typed item
+  const matchingWarehouseItem = warehouse.find(w => w.name.toLowerCase() === newRequestItem.toLowerCase());
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -260,7 +278,6 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                     <DollarSign size={18} /> Costos
                     </button>
                  )}
-                 {/* Default Info Tab (Hidden if no content other than left col, but let's keep it for QR) */}
                  <button 
                     onClick={() => setActiveTab('qr')}
                     className={`flex-1 min-w-[100px] py-4 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'qr' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -364,12 +381,42 @@ const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSa
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                         <h4 className="text-sm font-semibold text-blue-800 mb-3">Nueva Solicitud / Factura</h4>
                         <div className="flex flex-col gap-3">
-                            <input 
-                                placeholder="Nombre del material / servicio"
-                                className="w-full text-sm border p-2 rounded"
-                                value={newRequestItem}
-                                onChange={(e) => setNewRequestItem(e.target.value)}
-                            />
+                            
+                            {/* Warehouse Selector */}
+                            <div className="relative">
+                                <label className="text-[10px] uppercase font-bold text-blue-400 mb-1 block">Recurso (Material o Servicio)</label>
+                                {warehouse.length > 0 && (
+                                    <select 
+                                        className="w-full text-sm border p-2 rounded mb-2 bg-white"
+                                        value={selectedWarehouseId}
+                                        onChange={handleWarehouseSelect}
+                                    >
+                                        <option value="">-- Cargar desde Almacén (Opcional) --</option>
+                                        {warehouse.map(w => (
+                                            <option key={w.id} value={w.id}>
+                                                {w.name} (Stock: {w.quantity} {w.unit})
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                                
+                                <div className="flex items-center">
+                                    <input 
+                                        placeholder="Escriba el nombre del material..."
+                                        className="w-full text-sm border p-2 rounded"
+                                        value={newRequestItem}
+                                        onChange={(e) => setNewRequestItem(e.target.value)}
+                                    />
+                                    {matchingWarehouseItem && (
+                                        <span className={`ml-2 text-xs font-bold px-2 py-1 rounded whitespace-nowrap ${
+                                            matchingWarehouseItem.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                        }`}>
+                                            {matchingWarehouseItem.quantity > 0 ? `Stock: ${matchingWarehouseItem.quantity}` : 'Sin Stock'}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
                                     <span className="absolute left-2 top-2 text-gray-500 text-sm">$</span>
