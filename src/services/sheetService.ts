@@ -13,14 +13,6 @@ const WAREHOUSE_KEY = 'school_maint_warehouse_v1';
 const AUTH_KEY = 'school_maint_auth_v1';
 const API_CONFIG_KEY = 'school_maint_api_config_v1';
 
-// --- RACE CONDITION PROTECTION ---
-// Tracks the last time the user modified data locally.
-let lastLocalModification = 0;
-
-const touchLocal = () => {
-  lastLocalModification = Date.now();
-};
-
 // --- HELPER: SMART MERGE ---
 
 /**
@@ -70,7 +62,6 @@ export const getUnits = async (): Promise<MaintenanceUnit[]> => {
 };
 
 export const updateUnit = async (updatedUnit: MaintenanceUnit): Promise<MaintenanceUnit[]> => {
-  touchLocal(); // Mark as modified
   await new Promise(resolve => setTimeout(resolve, 200));
   const stored = localStorage.getItem(STORAGE_KEY);
   const units: MaintenanceUnit[] = stored ? JSON.parse(stored) : INITIAL_UNITS;
@@ -80,7 +71,6 @@ export const updateUnit = async (updatedUnit: MaintenanceUnit): Promise<Maintena
 };
 
 export const createUnit = async (newUnit: MaintenanceUnit): Promise<MaintenanceUnit[]> => {
-  touchLocal(); // Mark as modified
   await new Promise(resolve => setTimeout(resolve, 200));
   const stored = localStorage.getItem(STORAGE_KEY);
   const units: MaintenanceUnit[] = stored ? JSON.parse(stored) : INITIAL_UNITS;
@@ -103,7 +93,6 @@ export const getCampuses = async (): Promise<string[]> => {
 };
 
 export const addCampus = async (name: string): Promise<string[]> => {
-  touchLocal(); // Mark as modified
   await new Promise(resolve => setTimeout(resolve, 200));
   const stored = localStorage.getItem(CAMPUS_KEY);
   const campuses: string[] = stored ? JSON.parse(stored) : [];
@@ -116,7 +105,6 @@ export const addCampus = async (name: string): Promise<string[]> => {
 };
 
 export const renameCampus = async (oldName: string, newName: string): Promise<{campuses: string[], units: MaintenanceUnit[]}> => {
-  touchLocal(); // Mark as modified
   await new Promise(resolve => setTimeout(resolve, 200));
   const storedCampuses = localStorage.getItem(CAMPUS_KEY);
   let campuses: string[] = storedCampuses ? JSON.parse(storedCampuses) : [];
@@ -130,7 +118,6 @@ export const renameCampus = async (oldName: string, newName: string): Promise<{c
 };
 
 export const deleteCampus = async (name: string): Promise<{campuses: string[], units: MaintenanceUnit[]}> => {
-  touchLocal(); // Mark as modified
   await new Promise(resolve => setTimeout(resolve, 200));
   const storedCampuses = localStorage.getItem(CAMPUS_KEY);
   let campuses: string[] = storedCampuses ? JSON.parse(storedCampuses) : [];
@@ -152,7 +139,6 @@ export const getTools = async (): Promise<Tool[]> => {
 };
 
 export const updateTool = async (updatedTool: Tool): Promise<Tool[]> => {
-  touchLocal(); // Mark as modified
   const tools = await getTools();
   const newTools = tools.map(t => t.id === updatedTool.id ? updatedTool : t);
   localStorage.setItem(TOOLS_KEY, JSON.stringify(newTools));
@@ -160,7 +146,6 @@ export const updateTool = async (updatedTool: Tool): Promise<Tool[]> => {
 };
 
 export const addTool = async (newTool: Tool): Promise<Tool[]> => {
-  touchLocal(); // Mark as modified
   const tools = await getTools();
   const newTools = [...tools, newTool];
   localStorage.setItem(TOOLS_KEY, JSON.stringify(newTools));
@@ -174,7 +159,6 @@ export const getWarehouse = async (): Promise<WarehouseItem[]> => {
 };
 
 export const updateWarehouseItem = async (updatedItem: WarehouseItem): Promise<WarehouseItem[]> => {
-  touchLocal(); // Mark as modified
   const items = await getWarehouse();
   const newItems = items.map(i => i.id === updatedItem.id ? updatedItem : i);
   localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(newItems));
@@ -182,7 +166,6 @@ export const updateWarehouseItem = async (updatedItem: WarehouseItem): Promise<W
 };
 
 export const addWarehouseItem = async (newItem: WarehouseItem): Promise<WarehouseItem[]> => {
-  touchLocal(); // Mark as modified
   const items = await getWarehouse();
   const newItems = [...items, newItem];
   localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(newItems));
@@ -217,7 +200,6 @@ export const getAuthData = (): AuthData => {
 };
 
 export const saveAuthData = (data: AuthData) => {
-  touchLocal();
   localStorage.setItem(AUTH_KEY, JSON.stringify(data));
 };
 
@@ -313,10 +295,6 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
  * Downloads data from Google Sheets (via GET request) and merges it with local storage
  */
 export const fetchFromGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
-  
-  // NOTE: Smart merge removes the need for a 15s grace period blocking.
-  // We will download data, and the merge logic will decide what to keep.
-
   const url = getApiConfig();
   if (!url) {
     return { success: false, message: 'No se ha configurado la URL del API.' };
@@ -357,7 +335,6 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
       }
 
       // 3. Simple overwrite for tools/warehouse/auth for now 
-      // (Can be improved with merge logic if needed later, but low conflict risk)
       if (Array.isArray(tools)) localStorage.setItem(TOOLS_KEY, JSON.stringify(tools));
       if (Array.isArray(warehouse)) localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(warehouse));
       if (auth && typeof auth === 'object') localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
