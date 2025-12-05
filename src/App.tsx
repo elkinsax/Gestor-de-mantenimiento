@@ -34,20 +34,28 @@ const App: React.FC = () => {
   const [selectedCampus, setSelectedCampus] = useState<string>('TODAS');
 
   useEffect(() => {
-    loadData();
-    checkUrlParams();
+    async function loadCloudData() {
+      const endpoint = localStorage.getItem("backendUrl");
+      if (!endpoint) return;
 
-    // Auto-polling: Check for cloud updates every 30 seconds
-    const interval = setInterval(async () => {
-        const result = await fetchFromGoogleSheets();
-        if (result.success) {
-            console.log("Auto-poll success: Data refreshed from cloud.");
-            loadData(); // Reload local state from updated storage
+      try {
+        const res = await fetch(endpoint + "?v=" + Date.now());
+        const json = await res.json();
+
+        if (json.status === "success") {
+          localStorage.setItem("campuses", JSON.stringify(json.data.campuses));
+          localStorage.setItem("units", JSON.stringify(json.data.units));
+          localStorage.setItem("tools", JSON.stringify(json.data.tools));
+          localStorage.setItem("warehouse", JSON.stringify(json.data.warehouse));
         }
-    }, 30000);
+      } catch (err) {
+        console.error("No se pudo obtener datos de la nube:", err);
+      }
+    }
 
-    return () => clearInterval(interval);
+    loadCloudData();
   }, []);
+
 
   const loadData = async () => {
     // Silent load to avoid full spinner on polling
