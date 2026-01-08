@@ -84,7 +84,6 @@ const App: React.FC = () => {
 
   const handleCloseWarehouse = () => {
     setIsWarehouseOpen(false);
-    // Recargamos datos solo si es necesario tras cerrar
     loadOrgData();
   };
 
@@ -99,8 +98,9 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-black text-white px-6 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xl border-b border-white/10">
         <div className="flex items-center gap-4">
-           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-lg">
-             <img src="https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png" alt="Logo" className="max-h-full" />
+           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-lg overflow-hidden">
+             {/* Ahora el logo es dinámico según la organización */}
+             <img src={currentOrg.logoUrl || "https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png"} alt="Logo" className="max-h-full object-contain" />
            </div>
            <div>
              <h1 className="font-black text-sm uppercase tracking-tighter leading-none">{currentOrg.name}</h1>

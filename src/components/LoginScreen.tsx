@@ -42,11 +42,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 256; // Tamaño optimizado para logos de sistema
+        const MAX_SIZE = 256; 
         let width = img.width;
         let height = img.height;
 
-        // Mantener relación de aspecto dentro del máximo
         if (width > height) {
           if (width > MAX_SIZE) {
             height *= MAX_SIZE / width;
@@ -63,10 +62,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          // Aseguramos transparencia
           ctx.clearRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
-          // Exportamos siempre como PNG para soportar logos con transparencias
           const processedBase64 = canvas.toDataURL('image/png');
           setRegLogoBase64(processedBase64);
         }
@@ -254,15 +251,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           <div className="bg-gray-900 border border-white/10 p-8 rounded-[3rem] w-full max-w-md shadow-2xl animate-in fade-in slide-in-from-bottom-12">
              <div className="flex justify-between items-start mb-8">
                 <div>
-                   <h3 className="text-2xl font-black tracking-tighter uppercase">Configuración SaaS</h3>
-                   <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Crea tu espacio de trabajo</p>
+                   <h3 className="text-2xl font-black tracking-tighter uppercase">Nuevo Entorno</h3>
+                   <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Configuración Inicial SaaS</p>
                 </div>
                 <button onClick={() => setShowRegister(false)} className="p-2 hover:bg-white/5 rounded-full"><X size={20}/></button>
              </div>
              
              <form onSubmit={handleRegisterOrg} className="space-y-6">
                 <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Nombre de la Institución</label>
+                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Nombre de la Institución</label>
                    <input 
                     required
                     placeholder="Ej. Liceo Moderno Internacional"
@@ -273,7 +270,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Logo Institucional (PNG Recomendado)</label>
+                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Identidad Visual (PNG)</label>
                    
                    <div 
                       onClick={() => fileInputRef.current?.click()}
@@ -292,13 +289,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                       ) : regLogoBase64 ? (
                         <div className="flex flex-col items-center gap-2">
                           <img src={regLogoBase64} alt="Preview" className="h-16 w-auto object-contain rounded" />
-                          <span className="text-[9px] text-green-500 font-bold uppercase">Logo Procesado Correctamente</span>
+                          <span className="text-[9px] text-green-500 font-bold uppercase">Logo Procesado</span>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center gap-1 text-gray-500">
                            <Upload size={24} />
-                           <span className="text-[10px] font-bold uppercase tracking-wider">Haga clic para subir</span>
-                           <span className="text-[8px] opacity-60">PNG, JPG hasta 5MB (Se ajustará a 256px)</span>
+                           <span className="text-[10px] font-bold uppercase tracking-wider">Subir Logo PNG</span>
+                           <span className="text-[8px] opacity-60 italic">Se aislará en su propio espacio de datos</span>
                         </div>
                       )}
                    </div>
@@ -307,17 +304,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 <div className="p-4 bg-blue-600/10 border border-blue-500/20 rounded-2xl flex gap-3 items-start">
                    <CreditCard size={18} className="text-blue-500 mt-1 shrink-0" />
                    <div>
-                      <p className="text-[10px] font-bold text-blue-400 uppercase">Plan Free Activado</p>
-                      <p className="text-[9px] text-gray-400 mt-0.5">Soporta almacenamiento local y exportación manual JSON.</p>
+                      <p className="text-[10px] font-bold text-blue-400 uppercase">Seguridad Multitenant</p>
+                      <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">Cada colegio gestiona su propia base de datos de Google Sheets de forma privada e independiente.</p>
                    </div>
                 </div>
 
                 <button 
                   type="submit" 
                   disabled={isProcessingImage}
-                  className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition active:scale-95 disabled:opacity-50"
+                  className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition active:scale-95 disabled:opacity-50 shadow-xl shadow-white/5"
                 >
-                  {isProcessingImage ? 'Procesando...' : 'Inicializar Workspace'}
+                  {isProcessingImage ? 'Procesando...' : 'Crear Espacio de Trabajo'}
                 </button>
              </form>
           </div>
