@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Role, Organization } from '../types';
 import { sheetService } from '../services/sheetService';
-import { ShieldCheck, User, Wrench, Wallet, Lock, ArrowRight, Building, Plus, X, Globe, CreditCard } from 'lucide-react';
+import { ShieldCheck, User, Wrench, Wallet, Lock, ArrowRight, Building, Plus, X, Globe, CreditCard, Upload, Image as ImageIcon } from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: (org: Organization, role: Role) => void;
@@ -17,12 +18,68 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   // Registration state
   const [showRegister, setShowRegister] = useState(false);
   const [regName, setRegName] = useState('');
-  const [regLogo, setRegLogo] = useState('');
+  const [regLogoBase64, setRegLogoBase64] = useState<string | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = sheetService.getSavedOrganizations();
     setOrganizations(saved);
   }, []);
+
+  // Procesador de imágenes para logos
+  const processLogo = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, sube un archivo de imagen válido.');
+      return;
+    }
+
+    setIsProcessingImage(true);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 256; // Tamaño optimizado para logos de sistema
+        let width = img.width;
+        let height = img.height;
+
+        // Mantener relación de aspecto dentro del máximo
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          // Aseguramos transparencia
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          // Exportamos siempre como PNG para soportar logos con transparencias
+          const processedBase64 = canvas.toDataURL('image/png');
+          setRegLogoBase64(processedBase64);
+        }
+        setIsProcessingImage(false);
+      };
+    };
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processLogo(e.target.files[0]);
+    }
+  };
 
   const handleRegisterOrg = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,15 +87,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       const newOrg: Organization = {
         id: 'org_' + Math.random().toString(36).substr(2, 9),
         name: regName,
-        logoUrl: regLogo || 'https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png',
+        logoUrl: regLogoBase64 || 'https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png',
         plan: 'FREE'
       };
       sheetService.saveOrganization(newOrg);
       setOrganizations([...organizations, newOrg]);
       setShowRegister(false);
       setRegName('');
-      setRegLogo('');
-      // Seleccionar automáticamente la recién creada
+      setRegLogoBase64(null);
       setSelectedOrg(newOrg);
       setStep('role');
     }
@@ -61,7 +117,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
   const handleFinalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // En un SaaS real aquí validarías contra la DB de esa escuela
     if (password === '1234' || password === 'admin123') {
       localStorage.setItem('saas_current_org_id', selectedOrg!.id);
       onLogin(selectedOrg!, selectedRole!);
@@ -73,7 +128,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-[#0a0f1a] flex flex-col items-center justify-center p-4 text-white font-sans selection:bg-blue-500">
       
-      {/* Background decoration */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full blur-[120px]"></div>
@@ -91,7 +145,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
-              {/* Existing Schools */}
               <div className="bg-white/5 backdrop-blur-md border border-white/10 p-8 rounded-[2.5rem] flex flex-col items-center">
                 <Globe className="text-blue-400 mb-4" size={32} />
                 <h2 className="text-xl font-bold mb-6">Escuelas Registradas</h2>
@@ -113,7 +166,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 </div>
               </div>
 
-              {/* Register New School Card */}
               <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 backdrop-blur-md border border-white/10 p-8 rounded-[2.5rem] flex flex-col items-center justify-center text-center">
                 <Building className="text-blue-400 mb-4" size={48} />
                 <h2 className="text-2xl font-bold mb-4">¿Eres una Escuela Nueva?</h2>
@@ -196,14 +248,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
       </div>
 
-      {/* Modal Registro */}
+      {/* Modal Registro de Nueva Institución */}
       {showRegister && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-6">
           <div className="bg-gray-900 border border-white/10 p-8 rounded-[3rem] w-full max-w-md shadow-2xl animate-in fade-in slide-in-from-bottom-12">
              <div className="flex justify-between items-start mb-8">
                 <div>
-                   <h3 className="text-2xl font-black tracking-tighter uppercase">Nueva Escuela</h3>
-                   <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Configuración Inicial SaaS</p>
+                   <h3 className="text-2xl font-black tracking-tighter uppercase">Configuración SaaS</h3>
+                   <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Crea tu espacio de trabajo</p>
                 </div>
                 <button onClick={() => setShowRegister(false)} className="p-2 hover:bg-white/5 rounded-full"><X size={20}/></button>
              </div>
@@ -221,25 +273,51 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">URL del Logo (Opcional)</label>
-                   <input 
-                    placeholder="https://servidor.com/logo.png"
-                    className="w-full bg-black border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition"
-                    value={regLogo}
-                    onChange={(e) => setRegLogo(e.target.value)}
-                   />
+                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Logo Institucional (PNG Recomendado)</label>
+                   
+                   <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`w-full h-32 bg-black border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all ${regLogoBase64 ? 'border-green-500/50' : 'border-white/10 hover:border-blue-500/50'}`}
+                   >
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleFileChange}
+                      />
+                      
+                      {isProcessingImage ? (
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                      ) : regLogoBase64 ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <img src={regLogoBase64} alt="Preview" className="h-16 w-auto object-contain rounded" />
+                          <span className="text-[9px] text-green-500 font-bold uppercase">Logo Procesado Correctamente</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 text-gray-500">
+                           <Upload size={24} />
+                           <span className="text-[10px] font-bold uppercase tracking-wider">Haga clic para subir</span>
+                           <span className="text-[8px] opacity-60">PNG, JPG hasta 5MB (Se ajustará a 256px)</span>
+                        </div>
+                      )}
+                   </div>
                 </div>
 
                 <div className="p-4 bg-blue-600/10 border border-blue-500/20 rounded-2xl flex gap-3 items-start">
                    <CreditCard size={18} className="text-blue-500 mt-1 shrink-0" />
                    <div>
-                      <p className="text-[10px] font-bold text-blue-400 uppercase">Plan Gratuito Activado</p>
-                      <p className="text-[9px] text-gray-400 mt-0.5">Incluye hasta 50 unidades y sincronización básica con LocalStorage.</p>
+                      <p className="text-[10px] font-bold text-blue-400 uppercase">Plan Free Activado</p>
+                      <p className="text-[9px] text-gray-400 mt-0.5">Soporta almacenamiento local y exportación manual JSON.</p>
                    </div>
                 </div>
 
-                <button type="submit" className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition active:scale-95">
-                  Crear Espacio de Trabajo
+                <button 
+                  type="submit" 
+                  disabled={isProcessingImage}
+                  className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition active:scale-95 disabled:opacity-50"
+                >
+                  {isProcessingImage ? 'Procesando...' : 'Inicializar Workspace'}
                 </button>
              </form>
           </div>
