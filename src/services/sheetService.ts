@@ -224,7 +224,7 @@ export const sheetService = {
   getAuthData,
   saveAuthData,
   resetData,
-  syncOrgWithCloud: async (_org: Organization) => {
+  syncOrgWithCloud: async () => {
     return syncWithGoogleSheets();
   }
 };

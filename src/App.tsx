@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { MaintenanceUnit, Role, Status, Tool, WarehouseItem, Organization } from './types';
+import { MaintenanceUnit, Role, Tool, WarehouseItem, Organization } from './types';
 import { sheetService } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
@@ -71,9 +71,10 @@ const App: React.FC = () => {
     setIsCreateUnitOpen(false);
   };
 
+  // Fixed: syncOrgWithCloud expects 0 arguments as per its definition in sheetService.ts
   const handleSync = async () => {
     setSyncing(true);
-    await sheetService.syncOrgWithCloud(currentOrg!);
+    await sheetService.syncOrgWithCloud();
     setSyncing(false);
   };
 
