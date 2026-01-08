@@ -1,161 +1,132 @@
+
 import React, { useState } from 'react';
-import { Role } from '../types';
-import { ShieldCheck, User, Wrench, Wallet, Eye, Lock, ArrowRight, AlertCircle, X } from 'lucide-react';
-import { checkPassword } from '../services/sheetService';
+import { supabase } from '../supabase';
+import { ShieldCheck, LogIn, UserPlus, Mail, Lock, AlertCircle, Building } from 'lucide-react';
 
-interface LoginScreenProps {
-  onSelectRole: (role: Role) => void;
-}
-
-const LoginScreen: React.FC<LoginScreenProps> = ({ onSelectRole }) => {
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+const LoginScreen: React.FC = () => {
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [orgName, setOrgName] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const initiateLogin = (role: Role) => {
-    if (role === 'VIEWER') {
-      onSelectRole('VIEWER');
-    } else {
-      setSelectedRole(role);
-      setPassword('');
-      setError('');
-    }
-  };
-
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedRole) {
-      if (checkPassword(selectedRole, password)) {
-        onSelectRole(selectedRole);
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isRegistering) {
+        // 1. Crear usuario en Auth
+        // FIX: Casting 'supabase.auth' to 'any' to bypass 'Property signUp does not exist' errors
+        const { data: authData, error: authError } = await (supabase.auth as any).signUp({
+          email,
+          password,
+        });
+
+        if (authError) throw authError;
+
+        if (authData.user) {
+          // 2. Crear Organización
+          const { data: orgData, error: orgError } = await supabase
+            .from('organizations')
+            .insert([{ name: orgName, slug: orgName.toLowerCase().replace(/\s+/g, '-') }])
+            .select()
+            .single();
+
+          if (orgError) throw orgError;
+
+          // 3. Crear Perfil vinculado
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([{
+              id: authData.user.id,
+              organization_id: orgData.id,
+              full_name: fullName,
+              role: 'ADMIN'
+            }]);
+
+          if (profileError) throw profileError;
+        }
       } else {
-        setError('Contraseña incorrecta');
+        // FIX: Casting 'supabase.auth' to 'any' for 'signInWithPassword'
+        const { error } = await (supabase.auth as any).signInWithPassword({ email, password });
+        if (error) throw error;
       }
+    } catch (err: any) {
+      setError(err.message || 'Ocurrió un error en la autenticación');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex flex-col items-center justify-center p-4">
-      
-      <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="w-24 h-24 bg-white rounded-xl mx-auto mb-6 flex items-center justify-center shadow-2xl p-2">
-            <img 
-              src="https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png" 
-              alt="Logo" 
-              className="w-full h-full object-contain"
-            />
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div className="p-8 bg-black text-white text-center">
+          <div className="w-20 h-20 bg-white rounded-xl mx-auto mb-4 flex items-center justify-center p-2">
+            <img src="https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png" alt="Logo" className="w-full h-full object-contain" />
+          </div>
+          <h1 className="text-2xl font-bold">Mantenimiento Pro</h1>
+          <p className="text-gray-400 text-sm mt-1">Gestión SaaS para Colegios</p>
         </div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Gestor de Mantenimiento</h1>
-        <p className="text-gray-400 mt-2 text-sm">Selecciona tu perfil para ingresar al sistema</p>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
-        
-        <button 
-          onClick={() => initiateLogin('MAINTENANCE')}
-          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 p-6 rounded-xl flex items-center gap-4 transition group text-left"
-        >
-          <div className="bg-blue-900/50 p-3 rounded-lg text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition">
-            <Wrench size={24} />
-          </div>
-          <div>
-            <h3 className="text-white font-semibold">Jefe de Mantenimiento</h3>
-            <p className="text-gray-500 text-xs mt-1">Gestión operativa, asignaciones y reparaciones.</p>
-          </div>
-        </button>
+        <form onSubmit={handleAuth} className="p-8 space-y-4">
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2 border border-red-100">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
 
-        <button 
-          onClick={() => initiateLogin('TREASURY')}
-          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 p-6 rounded-xl flex items-center gap-4 transition group text-left"
-        >
-          <div className="bg-green-900/50 p-3 rounded-lg text-green-400 group-hover:bg-green-600 group-hover:text-white transition">
-            <Wallet size={24} />
-          </div>
-          <div>
-            <h3 className="text-white font-semibold">Tesorería / Compras</h3>
-            <p className="text-gray-500 text-xs mt-1">Aprobación de gastos, costos e inventario.</p>
-          </div>
-        </button>
-
-        <button 
-          onClick={() => initiateLogin('SOLICITOR')}
-          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 p-6 rounded-xl flex items-center gap-4 transition group text-left"
-        >
-          <div className="bg-purple-900/50 p-3 rounded-lg text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition">
-            <User size={24} />
-          </div>
-          <div>
-            <h3 className="text-white font-semibold">Solicitante / Encargado</h3>
-            <p className="text-gray-500 text-xs mt-1">Reportar novedades y realizar solicitudes vía QR.</p>
-          </div>
-        </button>
-
-        <button 
-          onClick={() => initiateLogin('ADMIN')}
-          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 p-6 rounded-xl flex items-center gap-4 transition group text-left"
-        >
-          <div className="bg-orange-900/50 p-3 rounded-lg text-orange-400 group-hover:bg-orange-600 group-hover:text-white transition">
-            <ShieldCheck size={24} />
-          </div>
-          <div>
-            <h3 className="text-white font-semibold">Administrador</h3>
-            <p className="text-gray-500 text-xs mt-1">Configuración global, bases de datos y usuarios.</p>
-          </div>
-        </button>
-
-      </div>
-
-      <button 
-        onClick={() => initiateLogin('VIEWER')}
-        className="mt-8 text-gray-500 hover:text-white text-sm flex items-center gap-2 transition"
-      >
-        <Eye size={16} />
-        Entrar como observador (Solo lectura)
-      </button>
-
-      {/* Password Modal */}
-      {selectedRole && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-           <div className="bg-gray-900 border border-gray-700 p-6 rounded-xl w-full max-w-sm shadow-2xl">
-              <div className="flex justify-between items-center mb-4">
-                 <h3 className="text-white font-bold">Ingresar Contraseña</h3>
-                 <button onClick={() => setSelectedRole(null)} className="text-gray-400 hover:text-white">
-                    <X size={20} />
-                 </button>
+          {isRegistering && (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Colegio</label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                  <input required type="text" className="w-full border rounded-lg pl-10 p-2.5 text-sm outline-none focus:ring-2 focus:ring-black" placeholder="Ej: Colegio Boston" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+                </div>
               </div>
-              <p className="text-gray-400 text-xs mb-4">
-                Ingresa la clave para el rol de <span className="text-blue-400 font-bold">{selectedRole}</span>
-              </p>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tu Nombre Completo</label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                  <input required type="text" className="w-full border rounded-lg pl-10 p-2.5 text-sm outline-none focus:ring-2 focus:ring-black" placeholder="Ej: Juan Pérez" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
 
-              <form onSubmit={handleLoginSubmit}>
-                  <div className="relative mb-4">
-                    <Lock className="absolute left-3 top-2.5 text-gray-500" size={16} />
-                    <input 
-                      type="password"
-                      autoFocus
-                      className="w-full bg-black border border-gray-600 text-white rounded-lg py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none"
-                      placeholder="••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-                  
-                  {error && (
-                    <div className="mb-4 flex items-center gap-2 text-red-400 text-xs bg-red-900/20 p-2 rounded">
-                       <AlertCircle size={14} />
-                       {error}
-                    </div>
-                  )}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Correo Electrónico</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-2.5 text-gray-400" size={18} />
+              <input required type="email" className="w-full border rounded-lg pl-10 p-2.5 text-sm outline-none focus:ring-2 focus:ring-black" placeholder="admin@colegio.com" value={email} onChange={(e) => setEmail(email)} />
+            </div>
+          </div>
 
-                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition flex justify-center items-center gap-2">
-                     Ingresar <ArrowRight size={16} />
-                  </button>
-              </form>
-           </div>
-        </div>
-      )}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contraseña</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-2.5 text-gray-400" size={18} />
+              <input required type="password" title="Mínimo 6 caracteres" className="w-full border rounded-lg pl-10 p-2.5 text-sm outline-none focus:ring-2 focus:ring-black" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+          </div>
 
-      <div className="mt-12 text-gray-600 text-xs">
-        © 2024 Sistema de Gestión de Activos Escolares
+          <button type="submit" disabled={loading} className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition flex justify-center items-center gap-2">
+            {loading ? 'Procesando...' : isRegistering ? 'Crear Cuenta SaaS' : 'Iniciar Sesión'}
+            <LogIn size={18} />
+          </button>
+
+          <div className="text-center mt-4">
+            <button type="button" onClick={() => setIsRegistering(!isRegistering)} className="text-sm text-gray-500 hover:text-black transition">
+              {isRegistering ? '¿Ya tienes cuenta? Ingresa aquí' : '¿Eres un colegio nuevo? Regístrate'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

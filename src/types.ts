@@ -1,29 +1,50 @@
-export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN' | 'SOLICITOR';
+
+export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN' | 'SOLICITOR' | 'SAAS_OWNER';
 
 export enum Status {
-  OPERATIVE = 'OPERATIVE',   // Azul
-  PREVENTION = 'PREVENTION', // Naranja
-  REPAIR = 'REPAIR',         // Rojo
-  REQUEST = 'REQUEST'        // Morado (Solicitud)
+  OPERATIVE = 'OPERATIVE',
+  PREVENTION = 'PREVENTION',
+  REPAIR = 'REPAIR',
+  REQUEST = 'REQUEST'
 }
 
 export type ToolStatus = 'AVAILABLE' | 'IN_USE' | 'BROKEN';
 
-export interface Tool {
+// SaaS Core: Organization/Tenant structure
+export interface Organization {
   id: string;
   name: string;
+  slug: string; // unique identifier in URL (e.g., 'colegio-boston')
+  logoUrl?: string;
+  subscriptionPlan: 'FREE' | 'PRO' | 'ENTERPRISE';
+  createdAt: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  role: Role;
+  organizationId: string;
+  fullName: string;
+}
+
+export interface Tool {
+  id: string;
+  organizationId?: string; // Optional for local demo
+  name: string;
   status: ToolStatus;
-  assignedTo?: string; // Name of person who has the tool
+  assignedTo?: string;
   assignedDate?: string;
-  image?: string;
+  image?: string; // Renamed from imageUrl to match component usage
 }
 
 export interface WarehouseItem {
   id: string;
+  organizationId?: string; // Optional for local demo
   name: string;
-  category: string; // e.g., "Eléctrico", "Plomería", "Pintura"
+  category: string;
   quantity: number;
-  unit: string; // "Unidad", "Galón", "Metro"
+  unit: string;
 }
 
 export interface InventoryItem {
@@ -40,21 +61,19 @@ export interface MaterialRequest {
   estimatedCost: number;
   approved: boolean;
   date: string;
+  requestedBy?: string; // Optional for local demo
 }
 
 export interface MaintenanceUnit {
   id: string;
-  campus: string; // "Sede Principal", "Sede Norte", etc.
-  name: string; // e.g., "Salón 101", "Baño Principal"
-  type: string; // "Aula", "Pasillo", "Baño"
+  organizationId?: string; // Optional for local demo
+  campus: string;
+  name: string;
+  type: string;
   description: string;
   status: Status;
-  images: string[];
+  images: string[]; // Renamed from imageUrls to match component usage
   inventory: InventoryItem[];
   requests: MaterialRequest[];
   lastUpdated: string;
-}
-
-export interface AuthData {
-  [role: string]: string; // Role key -> Password value
 }
