@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Package, Wrench, User, Calendar, Plus, Minus, AlertCircle } from 'lucide-react';
 import { Tool, WarehouseItem } from '../types';
@@ -49,8 +50,10 @@ const WarehouseModal: React.FC<WarehouseModalProps> = ({ isOpen, onClose }) => {
   const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newMaterial.name && newMaterial.quantity !== undefined) {
+      // Fixed: Added placeholder orgId to satisfy TypeScript interface requirements
       const item: WarehouseItem = {
         id: Date.now().toString(),
+        orgId: '', // Service handles population from active context
         name: newMaterial.name,
         quantity: newMaterial.quantity,
         category: newMaterial.category || 'General',
@@ -68,8 +71,10 @@ const WarehouseModal: React.FC<WarehouseModalProps> = ({ isOpen, onClose }) => {
   const handleAddTool = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newToolName.trim()) {
+      // Fixed: Added placeholder orgId to satisfy TypeScript interface requirements
       const tool: Tool = {
         id: Date.now().toString(),
+        orgId: '', // Service handles population from active context
         name: newToolName,
         status: 'AVAILABLE'
       };

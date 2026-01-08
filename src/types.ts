@@ -1,29 +1,39 @@
 export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN' | 'SOLICITOR';
 
 export enum Status {
-  OPERATIVE = 'OPERATIVE',   // Azul
-  PREVENTION = 'PREVENTION', // Naranja
-  REPAIR = 'REPAIR',         // Rojo
-  REQUEST = 'REQUEST'        // Morado (Solicitud)
+  OPERATIVE = 'OPERATIVE',
+  PREVENTION = 'PREVENTION',
+  REPAIR = 'REPAIR',
+  REQUEST = 'REQUEST'
 }
 
 export type ToolStatus = 'AVAILABLE' | 'IN_USE' | 'BROKEN';
 
-export interface Tool {
+export interface Organization {
   id: string;
   name: string;
+  logoUrl?: string;
+  plan: 'FREE' | 'PRO' | 'ENTERPRISE';
+  sheetsUrl?: string;
+}
+
+export interface Tool {
+  id: string;
+  orgId: string;
+  name: string;
   status: ToolStatus;
-  assignedTo?: string; // Name of person who has the tool
+  assignedTo?: string;
   assignedDate?: string;
   image?: string;
 }
 
 export interface WarehouseItem {
   id: string;
+  orgId: string;
   name: string;
-  category: string; // e.g., "Eléctrico", "Plomería", "Pintura"
+  category: string;
   quantity: number;
-  unit: string; // "Unidad", "Galón", "Metro"
+  unit: string;
 }
 
 export interface InventoryItem {
@@ -44,9 +54,10 @@ export interface MaterialRequest {
 
 export interface MaintenanceUnit {
   id: string;
-  campus: string; // "Sede Principal", "Sede Norte", etc.
-  name: string; // e.g., "Salón 101", "Baño Principal"
-  type: string; // "Aula", "Pasillo", "Baño"
+  orgId: string;
+  campus: string;
+  name: string;
+  type: string;
   description: string;
   status: Status;
   images: string[];
@@ -56,5 +67,5 @@ export interface MaintenanceUnit {
 }
 
 export interface AuthData {
-  [role: string]: string; // Role key -> Password value
+  [role: string]: string;
 }

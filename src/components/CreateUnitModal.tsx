@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { MaintenanceUnit, Status } from '../types';
 import { X, Layout } from 'lucide-react';
@@ -20,8 +21,10 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({ isOpen, campuses, onC
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Fixed: Added placeholder orgId to satisfy TypeScript interface requirements
     const newUnit: MaintenanceUnit = {
       id: Date.now().toString(),
+      orgId: '', // Placeholder value, will be updated by the parent component
       name,
       campus,
       type,
