@@ -7,7 +7,7 @@ import GeneralDashboard from './components/GeneralDashboard';
 import WarehouseModal from './components/WarehouseModal';
 import AdminSettingsModal from './components/AdminSettingsModal';
 import CreateUnitModal from './components/CreateUnitModal';
-import { LayoutGrid, Package, Settings, Plus, RefreshCw, Search } from 'lucide-react';
+import { LayoutGrid, Package, Settings, Plus, Search } from 'lucide-react';
 
 const App: React.FC = () => {
   const [units, setUnits] = useState<MaintenanceUnit[]>([]);
@@ -55,41 +55,25 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20 md:pb-0">
-      {/* Header */}
       <header className="bg-black text-white px-4 py-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden">
-            <img src="https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png" alt="Logo" className="max-h-full p-1" />
+          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1">
+            <img src="https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png" alt="Logo" className="max-h-full" />
           </div>
           <div>
             <h1 className="font-black text-sm uppercase tracking-tighter leading-none">Mantenimiento Pro</h1>
-            <span className="text-[10px] text-gray-400">Colegio Interno</span>
+            <span className="text-[10px] text-gray-400">Control Interno de Sede</span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <button onClick={() => setIsSettingsOpen(true)} className="p-2 hover:bg-gray-800 rounded-full">
-            <Settings size={20} />
-          </button>
-        </div>
+        <button onClick={() => setIsSettingsOpen(true)} className="p-2 hover:bg-gray-800 rounded-full transition">
+          <Settings size={20} />
+        </button>
       </header>
 
-      {/* Main Navigation (Desktop) */}
-      <nav className="hidden md:flex bg-white border-b px-6 py-2 gap-8 items-center">
-        <button 
-          onClick={() => setActiveView('dashboard')}
-          className={`py-2 px-1 border-b-2 font-bold text-sm transition ${activeView === 'dashboard' ? 'border-black text-black' : 'border-transparent text-gray-400'}`}
-        >
-          DASHBOARD
-        </button>
-        <button 
-          onClick={() => setActiveView('units')}
-          className={`py-2 px-1 border-b-2 font-bold text-sm transition ${activeView === 'units' ? 'border-black text-black' : 'border-transparent text-gray-400'}`}
-        >
-          UNIDADES
-        </button>
-        <button onClick={() => setIsWarehouseOpen(true)} className="text-gray-400 font-bold text-sm hover:text-black">
-          ALMACÉN
-        </button>
+      <nav className="hidden md:flex bg-white border-b px-6 py-2 gap-8 items-center shadow-sm">
+        <button onClick={() => setActiveView('dashboard')} className={`py-2 px-1 border-b-2 font-black text-xs transition uppercase tracking-widest ${activeView === 'dashboard' ? 'border-black text-black' : 'border-transparent text-gray-400'}`}>DASHBOARD</button>
+        <button onClick={() => setActiveView('units')} className={`py-2 px-1 border-b-2 font-black text-xs transition uppercase tracking-widest ${activeView === 'units' ? 'border-black text-black' : 'border-transparent text-gray-400'}`}>UNIDADES</button>
+        <button onClick={() => setIsWarehouseOpen(true)} className="text-gray-400 font-black text-xs hover:text-black transition uppercase tracking-widest">ALMACÉN</button>
       </nav>
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6">
@@ -108,10 +92,7 @@ const App: React.FC = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <button 
-                onClick={() => setIsCreateOpen(true)}
-                className="w-full md:w-auto bg-black text-white px-6 py-2 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-gray-800"
-              >
+              <button onClick={() => setIsCreateOpen(true)} className="w-full md:w-auto bg-black text-white px-6 py-2 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-gray-800 transition">
                 <Plus size={20} /> Nueva Unidad
               </button>
             </div>
@@ -125,49 +106,24 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Mobile Nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 z-40">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 z-40 shadow-lg">
         <button onClick={() => setActiveView('dashboard')} className={`p-2 flex flex-col items-center ${activeView === 'dashboard' ? 'text-black' : 'text-gray-400'}`}>
-          <LayoutGrid size={24} />
-          <span className="text-[10px] font-bold">Inicio</span>
+          <LayoutGrid size={24} /><span className="text-[10px] font-bold">Inicio</span>
         </button>
         <button onClick={() => setActiveView('units')} className={`p-2 flex flex-col items-center ${activeView === 'units' ? 'text-black' : 'text-gray-400'}`}>
-          <Search size={24} />
-          <span className="text-[10px] font-bold">Unidades</span>
+          <Search size={24} /><span className="text-[10px] font-bold">Unidades</span>
         </button>
         <button onClick={() => setIsWarehouseOpen(true)} className="p-2 flex flex-col items-center text-gray-400">
-          <Package size={24} />
-          <span className="text-[10px] font-bold">Almacén</span>
+          <Package size={24} /><span className="text-[10px] font-bold">Almacén</span>
         </button>
       </div>
 
       {selectedUnit && (
-        <UnitModal 
-          unit={selectedUnit} 
-          role={userRole} 
-          isOpen={true} 
-          onClose={() => setSelectedUnit(null)} 
-          onSave={handleSaveUnit}
-          warehouse={warehouse}
-        />
+        <UnitModal unit={selectedUnit} role={userRole} isOpen={true} onClose={() => setSelectedUnit(null)} onSave={handleSaveUnit} warehouse={warehouse} />
       )}
-
-      {isWarehouseOpen && (
-        <WarehouseModal isOpen={true} onClose={() => { setIsWarehouseOpen(false); loadAllData(); }} />
-      )}
-
-      {isSettingsOpen && (
-        <AdminSettingsModal isOpen={true} onClose={() => setIsSettingsOpen(false)} />
-      )}
-
-      {isCreateOpen && (
-        <CreateUnitModal 
-          isOpen={true} 
-          campuses={campuses} 
-          onClose={() => setIsCreateOpen(false)} 
-          onSave={handleCreateUnit} 
-        />
-      )}
+      {isWarehouseOpen && <WarehouseModal isOpen={true} onClose={() => { setIsWarehouseOpen(false); loadAllData(); }} />}
+      {isSettingsOpen && <AdminSettingsModal isOpen={true} onClose={() => setIsSettingsOpen(false)} />}
+      {isCreateOpen && <CreateUnitModal isOpen={true} campuses={campuses} onClose={() => setIsCreateOpen(false)} onSave={handleCreateUnit} />}
     </div>
   );
 };
