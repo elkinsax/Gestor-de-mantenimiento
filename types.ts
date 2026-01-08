@@ -1,15 +1,26 @@
-export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN';
+// Added SOLICITOR to Role and REQUEST to Status. Added Organization, AuthData and orgId to entities.
+export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN' | 'SOLICITOR';
 
 export enum Status {
   OPERATIVE = 'OPERATIVE',   // Azul
   PREVENTION = 'PREVENTION', // Naranja
-  REPAIR = 'REPAIR'          // Rojo
+  REPAIR = 'REPAIR',         // Rojo
+  REQUEST = 'REQUEST'        // Púrpura
 }
 
 export type ToolStatus = 'AVAILABLE' | 'IN_USE' | 'BROKEN';
 
+export interface Organization {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  plan: 'FREE' | 'PRO' | 'ENTERPRISE';
+  sheetsUrl?: string;
+}
+
 export interface Tool {
   id: string;
+  orgId: string;
   name: string;
   status: ToolStatus;
   assignedTo?: string; // Name of person who has the tool
@@ -19,6 +30,7 @@ export interface Tool {
 
 export interface WarehouseItem {
   id: string;
+  orgId: string;
   name: string;
   category: string; // e.g., "Eléctrico", "Plomería", "Pintura"
   quantity: number;
@@ -43,6 +55,7 @@ export interface MaterialRequest {
 
 export interface MaintenanceUnit {
   id: string;
+  orgId: string;
   campus: string; // "Sede Principal", "Sede Norte", etc.
   name: string; // e.g., "Salón 101", "Baño Principal"
   type: string; // "Aula", "Pasillo", "Baño"
@@ -52,4 +65,8 @@ export interface MaintenanceUnit {
   inventory: InventoryItem[];
   requests: MaterialRequest[];
   lastUpdated: string;
+}
+
+export interface AuthData {
+  [role: string]: string;
 }

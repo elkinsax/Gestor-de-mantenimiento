@@ -1,149 +1,130 @@
 import { INITIAL_UNITS, INITIAL_TOOLS, INITIAL_WAREHOUSE } from '../constants';
-import { MaintenanceUnit, Tool, WarehouseItem } from '../types';
+import { MaintenanceUnit, Tool, WarehouseItem, AuthData, Organization } from '../types';
 
 /**
  * Service to manage data persistence and API synchronization.
- * Uses LocalStorage for offline capability and Fetch API for cloud sync.
+ * Scoped by organization for SaaS compatibility.
  */
 
-const STORAGE_KEY = 'school_maint_data_v1';
-const CAMPUS_KEY = 'school_maint_campuses_v1';
-const TOOLS_KEY = 'school_maint_tools_v1';
-const WAREHOUSE_KEY = 'school_maint_warehouse_v1';
-const API_CONFIG_KEY = 'school_maint_api_config_v1';
+const STORAGE_PREFIX = 'saas_maint_v1_';
+const ORGS_KEY = 'saas_organizations_registry';
+const API_CONFIG_KEY = 'saas_api_config_v1';
+
+const getOrgKey = (orgId: string, key: string) => `${STORAGE_PREFIX}${orgId}_${key}`;
+
+const getCurrentOrgId = () => {
+  return localStorage.getItem('saas_current_org_id') || '';
+};
+
+// --- ORGANIZATIONS ---
+export const getSavedOrganizations = (): Organization[] => {
+  const data = localStorage.getItem(ORGS_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+export const saveOrganization = (org: Organization) => {
+  const orgs = getSavedOrganizations();
+  const exists = orgs.find(o => o.id === org.id);
+  const updated = exists ? orgs.map(o => o.id === org.id ? org : o) : [...orgs, org];
+  localStorage.setItem(ORGS_KEY, JSON.stringify(updated));
+};
 
 // --- UNITS ---
 
-export const getUnits = async (): Promise<MaintenanceUnit[]> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    return JSON.parse(stored);
-  }
-  return INITIAL_UNITS;
+export const getUnits = (orgId: string = getCurrentOrgId()): MaintenanceUnit[] => {
+  if (!orgId) return [];
+  const data = localStorage.getItem(getOrgKey(orgId, 'units'));
+  return data ? JSON.parse(data) : INITIAL_UNITS.map(u => ({ ...u, orgId }));
 };
 
-export const updateUnit = async (updatedUnit: MaintenanceUnit): Promise<MaintenanceUnit[]> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const units: MaintenanceUnit[] = stored ? JSON.parse(stored) : INITIAL_UNITS;
-  const newUnits = units.map(u => u.id === updatedUnit.id ? updatedUnit : u);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(newUnits));
-  return newUnits;
-};
-
-export const createUnit = async (newUnit: MaintenanceUnit): Promise<MaintenanceUnit[]> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const units: MaintenanceUnit[] = stored ? JSON.parse(stored) : INITIAL_UNITS;
-  const updatedUnits = [...units, newUnit];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUnits));
-  return updatedUnits;
+export const saveUnits = (orgId: string, units: MaintenanceUnit[]) => {
+  localStorage.setItem(getOrgKey(orgId, 'units'), JSON.stringify(units));
 };
 
 // --- CAMPUSES ---
 
-export const getCampuses = async (): Promise<string[]> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const stored = localStorage.getItem(CAMPUS_KEY);
-  if (stored) {
-    return JSON.parse(stored);
-  }
-  const derivedCampuses = Array.from(new Set(INITIAL_UNITS.map(u => u.campus)));
-  localStorage.setItem(CAMPUS_KEY, JSON.stringify(derivedCampuses));
-  return derivedCampuses;
-};
-
-export const addCampus = async (name: string): Promise<string[]> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const stored = localStorage.getItem(CAMPUS_KEY);
-  const campuses: string[] = stored ? JSON.parse(stored) : [];
-  if (!campuses.includes(name)) {
-    const newCampuses = [...campuses, name];
-    localStorage.setItem(CAMPUS_KEY, JSON.stringify(newCampuses));
-    return newCampuses;
-  }
+export const getCampuses = (orgId: string = getCurrentOrgId()): string[] => {
+  if (!orgId) return [];
+  const data = localStorage.getItem(getOrgKey(orgId, 'campuses'));
+  if (data) return JSON.parse(data);
+  const units = getUnits(orgId);
+  const campuses = Array.from(new Set(units.map(u => u.campus)));
+  saveCampuses(orgId, campuses);
   return campuses;
 };
 
-export const renameCampus = async (oldName: string, newName: string): Promise<{campuses: string[], units: MaintenanceUnit[]}> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const storedCampuses = localStorage.getItem(CAMPUS_KEY);
-  let campuses: string[] = storedCampuses ? JSON.parse(storedCampuses) : [];
-  campuses = campuses.map(c => c === oldName ? newName : c);
-  localStorage.setItem(CAMPUS_KEY, JSON.stringify(campuses));
-  const storedUnits = localStorage.getItem(STORAGE_KEY);
-  let units: MaintenanceUnit[] = storedUnits ? JSON.parse(storedUnits) : INITIAL_UNITS;
-  units = units.map(u => u.campus === oldName ? { ...u, campus: newName } : u);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
-  return { campuses, units };
+export const saveCampuses = (orgId: string, campuses: string[]) => {
+  localStorage.setItem(getOrgKey(orgId, 'campuses'), JSON.stringify(campuses));
 };
 
-export const deleteCampus = async (name: string): Promise<{campuses: string[], units: MaintenanceUnit[]}> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const storedCampuses = localStorage.getItem(CAMPUS_KEY);
-  let campuses: string[] = storedCampuses ? JSON.parse(storedCampuses) : [];
-  campuses = campuses.filter(c => c !== name);
-  localStorage.setItem(CAMPUS_KEY, JSON.stringify(campuses));
-  const storedUnits = localStorage.getItem(STORAGE_KEY);
-  let units: MaintenanceUnit[] = storedUnits ? JSON.parse(storedUnits) : INITIAL_UNITS;
-  units = units.filter(u => u.campus !== name);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
-  return { campuses, units };
+// --- TOOLS ---
+
+export const getTools = (orgId: string = getCurrentOrgId()): Tool[] => {
+  if (!orgId) return [];
+  const data = localStorage.getItem(getOrgKey(orgId, 'tools'));
+  return data ? JSON.parse(data) : INITIAL_TOOLS.map(t => ({ ...t, orgId }));
 };
 
-// --- TOOLS & WAREHOUSE ---
-
-export const getTools = async (): Promise<Tool[]> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const stored = localStorage.getItem(TOOLS_KEY);
-  return stored ? JSON.parse(stored) : INITIAL_TOOLS;
+export const saveTools = (orgId: string, tools: Tool[]) => {
+  localStorage.setItem(getOrgKey(orgId, 'tools'), JSON.stringify(tools));
 };
 
 export const updateTool = async (updatedTool: Tool): Promise<Tool[]> => {
-  const tools = await getTools();
+  const orgId = updatedTool.orgId || getCurrentOrgId();
+  const tools = getTools(orgId);
   const newTools = tools.map(t => t.id === updatedTool.id ? updatedTool : t);
-  localStorage.setItem(TOOLS_KEY, JSON.stringify(newTools));
+  saveTools(orgId, newTools);
   return newTools;
 };
 
 export const addTool = async (newTool: Tool): Promise<Tool[]> => {
-  const tools = await getTools();
+  const orgId = newTool.orgId || getCurrentOrgId();
+  const tools = getTools(orgId);
   const newTools = [...tools, newTool];
-  localStorage.setItem(TOOLS_KEY, JSON.stringify(newTools));
+  saveTools(orgId, newTools);
   return newTools;
 };
 
-export const getWarehouse = async (): Promise<WarehouseItem[]> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const stored = localStorage.getItem(WAREHOUSE_KEY);
-  return stored ? JSON.parse(stored) : INITIAL_WAREHOUSE;
+// --- WAREHOUSE ---
+
+export const getWarehouse = (orgId: string = getCurrentOrgId()): WarehouseItem[] => {
+  if (!orgId) return [];
+  const data = localStorage.getItem(getOrgKey(orgId, 'warehouse'));
+  return data ? JSON.parse(data) : INITIAL_WAREHOUSE.map(w => ({ ...w, orgId }));
+};
+
+export const saveWarehouse = (orgId: string, items: WarehouseItem[]) => {
+  localStorage.setItem(getOrgKey(orgId, 'warehouse'), JSON.stringify(items));
 };
 
 export const updateWarehouseItem = async (updatedItem: WarehouseItem): Promise<WarehouseItem[]> => {
-  const items = await getWarehouse();
+  const orgId = updatedItem.orgId || getCurrentOrgId();
+  const items = getWarehouse(orgId);
   const newItems = items.map(i => i.id === updatedItem.id ? updatedItem : i);
-  localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(newItems));
+  saveWarehouse(orgId, newItems);
   return newItems;
 };
 
 export const addWarehouseItem = async (newItem: WarehouseItem): Promise<WarehouseItem[]> => {
-  const items = await getWarehouse();
+  const orgId = newItem.orgId || getCurrentOrgId();
+  const items = getWarehouse(orgId);
   const newItems = [...items, newItem];
-  localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(newItems));
+  saveWarehouse(orgId, newItems);
   return newItems;
 };
 
+// --- AUTH DATA ---
 
-export const resetData = () => {
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(CAMPUS_KEY);
-  localStorage.removeItem(TOOLS_KEY);
-  localStorage.removeItem(WAREHOUSE_KEY);
-  window.location.reload();
+export const getAuthData = (): AuthData => {
+  const data = localStorage.getItem('saas_auth_data');
+  return data ? JSON.parse(data) : {};
 };
 
-// --- GOOGLE SHEETS / BACKEND CONNECTION ---
+export const saveAuthData = (data: AuthData) => {
+  localStorage.setItem('saas_auth_data', JSON.stringify(data));
+};
+
+// --- CONFIG & SYNC ---
 
 export const getApiConfig = (): string => {
   return localStorage.getItem(API_CONFIG_KEY) || '';
@@ -159,58 +140,83 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
     return { success: false, message: 'No se ha configurado la URL del API.' };
   }
 
+  const orgId = getCurrentOrgId();
   try {
-    const units = await getUnits();
-    const campuses = await getCampuses();
-    const tools = await getTools();
-    const warehouse = await getWarehouse();
-    
     const payload = {
       timestamp: new Date().toISOString(),
       action: 'SYNC_UP',
+      orgId,
       data: {
-        units,
-        campuses,
-        tools,
-        warehouse
+        units: getUnits(orgId),
+        campuses: getCampuses(orgId),
+        tools: getTools(orgId),
+        warehouse: getWarehouse(orgId),
+        auth: getAuthData()
       }
     };
-
-    console.log("---------------- SYNC DEBUG ----------------");
-    console.log("Sending payload to:", url);
-    console.log("Payload Structure:", JSON.stringify(payload, null, 2));
-    console.log("--------------------------------------------");
 
     const response = await fetch(url, {
       method: 'POST',
       body: JSON.stringify(payload),
-      headers: { 
-        'Content-Type': 'text/plain' 
-      }
+      headers: { 'Content-Type': 'text/plain' }
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
-    }
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
-    const textResult = await response.text();
-    let jsonResult;
-    try {
-      jsonResult = JSON.parse(textResult);
-    } catch (e) {
-      console.warn("Response was not valid JSON:", textResult);
-    }
-
-    return { 
-      success: true, 
-      message: jsonResult?.message || 'Datos enviados correctamente al servidor.' 
-    };
-
+    const result = await response.json();
+    return { success: true, message: result.message || 'Datos sincronizados correctamente.' };
   } catch (error: any) {
-    console.error("Sync Error:", error);
-    return { 
-      success: false, 
-      message: `Error de conexión: ${error.message || 'Desconocido'}. Verifica la URL y CORS.` 
-    };
+    return { success: false, message: `Error: ${error.message}` };
   }
+};
+
+export const fetchFromGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
+  const url = getApiConfig();
+  if (!url) return { success: false, message: 'URL no configurada.' };
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+
+    const result = await response.json();
+    if (result.status === 'success') {
+      const orgId = getCurrentOrgId();
+      saveUnits(orgId, result.data.units);
+      saveCampuses(orgId, result.data.campuses);
+      saveTools(orgId, result.data.tools);
+      saveWarehouse(orgId, result.data.warehouse);
+      saveAuthData(result.data.auth);
+      return { success: true, message: 'Datos descargados.' };
+    }
+    return { success: false, message: result.message };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+};
+
+export const resetData = () => {
+  localStorage.clear();
+  window.location.reload();
+};
+
+// Centralized service object for default export consumption
+export const sheetService = {
+  getUnits,
+  saveUnits,
+  getCampuses,
+  saveCampuses,
+  getTools,
+  saveTools,
+  getWarehouse,
+  saveWarehouse,
+  getAuthData,
+  saveAuthData,
+  getApiConfig,
+  saveApiConfig,
+  syncWithGoogleSheets,
+  fetchFromGoogleSheets,
+  resetData,
+  getSavedOrganizations,
+  saveOrganization,
+  syncOrgWithCloud: async () => syncWithGoogleSheets()
 };
