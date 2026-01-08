@@ -1,5 +1,6 @@
 
-import { MaintenanceUnit, Tool, WarehouseItem, Status } from '../types';
+
+import { MaintenanceUnit, Tool, WarehouseItem } from '../types';
 import { INITIAL_UNITS, INITIAL_TOOLS, INITIAL_WAREHOUSE } from '../constants';
 
 /**
@@ -38,7 +39,7 @@ export const getApiConfig = (): string => localStorage.getItem(API_CONFIG_KEY) |
 export const saveApiConfig = (url: string) => localStorage.setItem(API_CONFIG_KEY, url.trim());
 
 // --- UNITS ---
-export const getUnits = async (orgId?: string): Promise<MaintenanceUnit[]> => {
+export const getUnits = async (_orgId?: string): Promise<MaintenanceUnit[]> => {
   return getStored(STORAGE_KEY, INITIAL_UNITS);
 };
 
@@ -59,7 +60,8 @@ export const createUnit = async (newUnit: MaintenanceUnit): Promise<MaintenanceU
 // --- CAMPUSES ---
 export const getCampuses = async (): Promise<string[]> => {
   const stored = localStorage.getItem(CAMPUS_KEY);
-  if (stored) return JSON.parse(stored);
+  // Fix: Explicitly cast JSON.parse result to string[] to resolve 'unknown[]' to 'string[]' assignment error
+  if (stored) return JSON.parse(stored) as string[];
   const derivedCampuses = Array.from(new Set(INITIAL_UNITS.map(u => u.campus)));
   setStored(CAMPUS_KEY, derivedCampuses);
   return derivedCampuses;
@@ -181,7 +183,7 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
   }
 };
 
-export const saveUnitToCloud = async (unit: MaintenanceUnit) => {
+export const saveUnitToCloud = async (_unit: MaintenanceUnit) => {
     // For simplicity, we sync the whole state
     return syncWithGoogleSheets();
 };

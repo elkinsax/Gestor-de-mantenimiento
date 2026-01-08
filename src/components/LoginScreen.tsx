@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
-import { ShieldCheck, LogIn, UserPlus, Mail, Lock, AlertCircle, Building } from 'lucide-react';
+import { ShieldCheck, LogIn, Mail, Lock, AlertCircle, Building } from 'lucide-react';
 
 const LoginScreen: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -20,7 +20,6 @@ const LoginScreen: React.FC = () => {
     try {
       if (isRegistering) {
         // 1. Crear usuario en Auth
-        // FIX: Casting 'supabase.auth' to 'any' to bypass 'Property signUp does not exist' errors
         const { data: authData, error: authError } = await (supabase.auth as any).signUp({
           email,
           password,
@@ -51,7 +50,6 @@ const LoginScreen: React.FC = () => {
           if (profileError) throw profileError;
         }
       } else {
-        // FIX: Casting 'supabase.auth' to 'any' for 'signInWithPassword'
         const { error } = await (supabase.auth as any).signInWithPassword({ email, password });
         if (error) throw error;
       }
@@ -104,7 +102,7 @@ const LoginScreen: React.FC = () => {
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Correo Electrónico</label>
             <div className="relative">
               <Mail className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <input required type="email" className="w-full border rounded-lg pl-10 p-2.5 text-sm outline-none focus:ring-2 focus:ring-black" placeholder="admin@colegio.com" value={email} onChange={(e) => setEmail(email)} />
+              <input required type="email" className="w-full border rounded-lg pl-10 p-2.5 text-sm outline-none focus:ring-2 focus:ring-black" placeholder="admin@colegio.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
           </div>
 

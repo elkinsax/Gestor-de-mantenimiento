@@ -51,8 +51,8 @@ export const getCampuses = async (): Promise<string[]> => {
   await new Promise(resolve => setTimeout(resolve, 200));
   const stored = localStorage.getItem(CAMPUS_KEY);
   if (stored) {
-    // FIX: Using 'as any' to avoid 'unknown[]' to 'string[]' assignment error on line 59
-    return JSON.parse(stored) as any;
+    // Fix: Explicitly cast JSON.parse result to string[] to resolve 'unknown[]' to 'string[]' assignment error
+    return JSON.parse(stored) as string[];
   }
   const derivedCampuses = Array.from(new Set(INITIAL_UNITS.map(u => u.campus)));
   localStorage.setItem(CAMPUS_KEY, JSON.stringify(derivedCampuses));
