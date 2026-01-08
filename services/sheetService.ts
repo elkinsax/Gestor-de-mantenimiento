@@ -2,11 +2,11 @@ import { MaintenanceUnit, Tool, WarehouseItem } from '../types';
 import { INITIAL_UNITS, INITIAL_TOOLS, INITIAL_WAREHOUSE } from '../constants';
 
 const KEYS = {
-  UNITS: 'maint_units_v2',
-  CAMPUSES: 'maint_campuses_v2',
-  TOOLS: 'maint_tools_v2',
-  WAREHOUSE: 'maint_warehouse_v2',
-  CONFIG: 'maint_config_v2'
+  UNITS: 'maint_v2_units',
+  CAMPUSES: 'maint_v2_campuses',
+  TOOLS: 'maint_v2_tools',
+  WAREHOUSE: 'maint_v2_warehouse',
+  CONFIG: 'maint_v2_config'
 };
 
 export const sheetService = {

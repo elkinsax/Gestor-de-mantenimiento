@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MaintenanceUnit, Tool, WarehouseItem, Role, Status } from './types';
+import { MaintenanceUnit, Tool, WarehouseItem, Role } from './types';
 import { sheetService } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
@@ -21,7 +21,7 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [userRole, setUserRole] = useState<Role>('ADMIN');
+  const [userRole] = useState<Role>('ADMIN');
 
   useEffect(() => {
     loadAllData();
@@ -62,10 +62,10 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="font-black text-sm uppercase tracking-tighter leading-none">Mantenimiento Pro</h1>
-            <span className="text-[10px] text-gray-400">Control Interno de Sede</span>
+            <span className="text-[10px] text-gray-400">Colegio Boston Internacional</span>
           </div>
         </div>
-        <button onClick={() => setIsSettingsOpen(true)} className="p-2 hover:bg-gray-800 rounded-full transition">
+        <button onClick={() => setIsSettingsOpen(true)} className="p-2 hover:bg-gray-800 rounded-full transition-colors">
           <Settings size={20} />
         </button>
       </header>
@@ -87,12 +87,12 @@ const App: React.FC = () => {
                 <input 
                   type="text" 
                   placeholder="Buscar unidad o sede..." 
-                  className="w-full pl-10 pr-4 py-2 bg-white border rounded-xl outline-none focus:ring-2 focus:ring-black"
+                  className="w-full pl-10 pr-4 py-2 bg-white border rounded-xl outline-none focus:ring-2 focus:ring-black transition-all shadow-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <button onClick={() => setIsCreateOpen(true)} className="w-full md:w-auto bg-black text-white px-6 py-2 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-gray-800 transition">
+              <button onClick={() => setIsCreateOpen(true)} className="w-full md:w-auto bg-black text-white px-6 py-3 rounded-xl flex items-center justify-center gap-2 font-black uppercase text-xs tracking-widest hover:bg-gray-800 transition shadow-lg active:scale-95">
                 <Plus size={20} /> Nueva Unidad
               </button>
             </div>
@@ -101,20 +101,26 @@ const App: React.FC = () => {
               {filteredUnits.map(unit => (
                 <UnitCard key={unit.id} unit={unit} onClick={() => setSelectedUnit(unit)} />
               ))}
+              {filteredUnits.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-gray-200">
+                  <Package size={48} className="mx-auto text-gray-200 mb-4" />
+                  <p className="text-gray-400 font-bold">No se encontraron unidades</p>
+                </div>
+              )}
             </div>
           </div>
         )}
       </main>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 z-40 shadow-lg">
-        <button onClick={() => setActiveView('dashboard')} className={`p-2 flex flex-col items-center ${activeView === 'dashboard' ? 'text-black' : 'text-gray-400'}`}>
-          <LayoutGrid size={24} /><span className="text-[10px] font-bold">Inicio</span>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 z-40 shadow-xl safe-area-bottom">
+        <button onClick={() => setActiveView('dashboard')} className={`p-2 flex flex-col items-center transition-colors ${activeView === 'dashboard' ? 'text-black' : 'text-gray-400'}`}>
+          <LayoutGrid size={24} /><span className="text-[10px] font-bold mt-1 uppercase">Inicio</span>
         </button>
-        <button onClick={() => setActiveView('units')} className={`p-2 flex flex-col items-center ${activeView === 'units' ? 'text-black' : 'text-gray-400'}`}>
-          <Search size={24} /><span className="text-[10px] font-bold">Unidades</span>
+        <button onClick={() => setActiveView('units')} className={`p-2 flex flex-col items-center transition-colors ${activeView === 'units' ? 'text-black' : 'text-gray-400'}`}>
+          <Search size={24} /><span className="text-[10px] font-bold mt-1 uppercase">Unidades</span>
         </button>
-        <button onClick={() => setIsWarehouseOpen(true)} className="p-2 flex flex-col items-center text-gray-400">
-          <Package size={24} /><span className="text-[10px] font-bold">Almacén</span>
+        <button onClick={() => setIsWarehouseOpen(true)} className="p-2 flex flex-col items-center text-gray-400 hover:text-black">
+          <Package size={24} /><span className="text-[10px] font-bold mt-1 uppercase">Almacén</span>
         </button>
       </div>
 

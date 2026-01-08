@@ -15,7 +15,6 @@ export interface Tool {
   status: ToolStatus;
   assignedTo?: string;
   assignedDate?: string;
-  image?: string;
 }
 
 export interface WarehouseItem {
