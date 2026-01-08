@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Package, Wrench, User, Calendar, Plus, Minus, Search, AlertCircle } from 'lucide-react';
+import { X, Package, Wrench, User, Calendar, Plus, Minus, AlertCircle } from 'lucide-react';
 import { Tool, WarehouseItem } from '../types';
 import { getTools, updateTool, addTool, getWarehouse, updateWarehouseItem, addWarehouseItem } from '../services/sheetService';
 

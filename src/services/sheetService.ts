@@ -1,5 +1,5 @@
 import { INITIAL_UNITS, INITIAL_TOOLS, INITIAL_WAREHOUSE } from '../constants';
-import { MaintenanceUnit, Tool, WarehouseItem } from '../types';
+import { MaintenanceUnit, Tool, WarehouseItem, AuthData } from '../types';
 
 /**
  * Service to manage data persistence and API synchronization.
@@ -10,7 +10,45 @@ const STORAGE_KEY = 'school_maint_data_v1';
 const CAMPUS_KEY = 'school_maint_campuses_v1';
 const TOOLS_KEY = 'school_maint_tools_v1';
 const WAREHOUSE_KEY = 'school_maint_warehouse_v1';
+const AUTH_KEY = 'school_maint_auth_v1';
 const API_CONFIG_KEY = 'school_maint_api_config_v1';
+
+// --- HELPER: SMART MERGE ---
+
+/**
+ * Merges local and cloud units based on lastUpdated timestamp.
+ * Retains the most recent version of each unit.
+ */
+function mergeUnits(localUnits: MaintenanceUnit[], cloudUnits: MaintenanceUnit[]): MaintenanceUnit[] {
+  const mergedMap = new Map<string, MaintenanceUnit>();
+
+  // Initialize with local units
+  localUnits.forEach(u => mergedMap.set(u.id, u));
+
+  // Merge cloud units
+  cloudUnits.forEach(cloudUnit => {
+    const localUnit = mergedMap.get(cloudUnit.id);
+    
+    if (!localUnit) {
+      // It's a new unit from the cloud (e.g. created on another device)
+      mergedMap.set(cloudUnit.id, cloudUnit);
+    } else {
+      // Conflict resolution: compare timestamps
+      // Timestamps should be ISO strings. 
+      const localTime = new Date(localUnit.lastUpdated).getTime();
+      const cloudTime = new Date(cloudUnit.lastUpdated).getTime();
+      
+      // If cloud version is newer (or equal), use it.
+      // If local version is newer (user just edited), keep local.
+      // Validating timestamps to avoid NaN issues with legacy data.
+      if (!isNaN(cloudTime) && (!isNaN(localTime) ? cloudTime > localTime : true)) {
+         mergedMap.set(cloudUnit.id, cloudUnit);
+      }
+    }
+  });
+
+  return Array.from(mergedMap.values());
+}
 
 // --- UNITS ---
 
@@ -140,7 +178,35 @@ export const resetData = () => {
   localStorage.removeItem(CAMPUS_KEY);
   localStorage.removeItem(TOOLS_KEY);
   localStorage.removeItem(WAREHOUSE_KEY);
+  localStorage.removeItem(AUTH_KEY);
   window.location.reload();
+};
+
+// --- AUTH & SECURITY ---
+
+export const getAuthData = (): AuthData => {
+  const stored = localStorage.getItem(AUTH_KEY);
+  if (stored) return JSON.parse(stored);
+  
+  // Default Passwords
+  const defaults = {
+    'ADMIN': 'admin123',
+    'MAINTENANCE': '1234',
+    'TREASURY': '1234',
+    'SOLICITOR': '1234'
+  };
+  localStorage.setItem(AUTH_KEY, JSON.stringify(defaults));
+  return defaults;
+};
+
+export const saveAuthData = (data: AuthData) => {
+  localStorage.setItem(AUTH_KEY, JSON.stringify(data));
+};
+
+export const checkPassword = (role: string, pass: string): boolean => {
+  if (role === 'VIEWER') return true;
+  const auth = getAuthData();
+  return auth[role] === pass;
 };
 
 // --- GOOGLE SHEETS / BACKEND CONNECTION ---
@@ -151,6 +217,13 @@ export const getApiConfig = (): string => {
 
 export const saveApiConfig = (url: string) => {
   localStorage.setItem(API_CONFIG_KEY, url.trim());
+};
+
+// Triggered when critical data changes (e.g. QR request)
+export const saveUnitToCloud = async (unit: MaintenanceUnit) => {
+   // For now, we sync everything to ensure consistency
+   console.log(`Auto-syncing triggered by update to unit: ${unit.name}`);
+   await syncWithGoogleSheets();
 };
 
 export const syncWithGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
@@ -164,22 +237,25 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
     const campuses = await getCampuses();
     const tools = await getTools();
     const warehouse = await getWarehouse();
+    const auth = getAuthData();
     
+    // Safety checks
+    const finalUnits = Array.isArray(units) ? units : [];
+    const finalCampuses = Array.isArray(campuses) ? campuses : [];
+    const finalTools = Array.isArray(tools) ? tools : [];
+    const finalWarehouse = Array.isArray(warehouse) ? warehouse : [];
+
     const payload = {
       timestamp: new Date().toISOString(),
       action: 'SYNC_UP',
       data: {
-        units,
-        campuses,
-        tools,
-        warehouse
+        units: finalUnits,
+        campuses: finalCampuses,
+        tools: finalTools,
+        warehouse: finalWarehouse,
+        auth: auth
       }
     };
-
-    console.log("---------------- SYNC DEBUG ----------------");
-    console.log("Sending payload to:", url);
-    console.log("Payload Structure:", JSON.stringify(payload, null, 2));
-    console.log("--------------------------------------------");
 
     const response = await fetch(url, {
       method: 'POST',
@@ -211,6 +287,68 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
     return { 
       success: false, 
       message: `Error de conexión: ${error.message || 'Desconocido'}. Verifica la URL y CORS.` 
+    };
+  }
+};
+
+/**
+ * Downloads data from Google Sheets (via GET request) and merges it with local storage
+ */
+export const fetchFromGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
+  const url = getApiConfig();
+  if (!url) {
+    return { success: false, message: 'No se ha configurado la URL del API.' };
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+    }
+
+    const textResult = await response.text();
+    let jsonResult;
+    try {
+      jsonResult = JSON.parse(textResult);
+    } catch (e) {
+      throw new Error("La respuesta del servidor no es un JSON válido.");
+    }
+
+    if (jsonResult.status === 'success' && jsonResult.data) {
+      const { units: cloudUnits, campuses: cloudCampuses, tools, warehouse, auth } = jsonResult.data;
+      
+      // 1. SMART MERGE UNITS
+      if (Array.isArray(cloudUnits)) {
+         const localUnits = await getUnits();
+         const mergedUnits = mergeUnits(localUnits, cloudUnits);
+         localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedUnits));
+      }
+
+      // 2. MERGE CAMPUSES (Union of sets)
+      if (Array.isArray(cloudCampuses)) {
+         const localCampuses = await getCampuses();
+         const mergedCampuses = Array.from(new Set([...localCampuses, ...cloudCampuses]));
+         localStorage.setItem(CAMPUS_KEY, JSON.stringify(mergedCampuses));
+      }
+
+      // 3. Simple overwrite for tools/warehouse/auth for now 
+      if (Array.isArray(tools)) localStorage.setItem(TOOLS_KEY, JSON.stringify(tools));
+      if (Array.isArray(warehouse)) localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(warehouse));
+      if (auth && typeof auth === 'object') localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+
+      return { success: true, message: 'Datos sincronizados.' };
+    } else {
+      return { success: false, message: jsonResult.message || 'Error desconocido al obtener datos.' };
+    }
+
+  } catch (error: any) {
+    // console.error("Fetch Error:", error);
+    return { 
+      success: false, 
+      message: `Error de conexión: ${error.message || 'Desconocido'}.` 
     };
   }
 };

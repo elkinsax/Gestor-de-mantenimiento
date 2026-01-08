@@ -1,9 +1,10 @@
-export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN';
+export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN' | 'SOLICITOR';
 
 export enum Status {
   OPERATIVE = 'OPERATIVE',   // Azul
   PREVENTION = 'PREVENTION', // Naranja
-  REPAIR = 'REPAIR'          // Rojo
+  REPAIR = 'REPAIR',         // Rojo
+  REQUEST = 'REQUEST'        // Morado (Solicitud)
 }
 
 export type ToolStatus = 'AVAILABLE' | 'IN_USE' | 'BROKEN';
@@ -52,4 +53,8 @@ export interface MaintenanceUnit {
   inventory: InventoryItem[];
   requests: MaterialRequest[];
   lastUpdated: string;
+}
+
+export interface AuthData {
+  [role: string]: string; // Role key -> Password value
 }

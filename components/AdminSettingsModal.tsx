@@ -1,95 +1,130 @@
-import React, { useState } from 'react';
-import { X, RefreshCw, Save, Database, Trash2, DownloadCloud } from 'lucide-react';
-import { sheetService } from '../services/sheetService';
+import React, { useState, useEffect } from 'react';
+import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits } from '../services/sheetService';
 
-interface Props {
+interface AdminSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const AdminSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const [url, setUrl] = useState(sheetService.getConfig());
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('');
+const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose }) => {
+  const [apiUrl, setApiUrl] = useState('');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
 
-  const handleSync = async () => {
-    if (!url) { setStatus('Error: Falta URL de Google Sheets'); return; }
-    setLoading(true);
-    setStatus('Sincronizando...');
-    
-    try {
-      const data = {
-        units: sheetService.getUnits(),
-        tools: sheetService.getTools(),
-        warehouse: sheetService.getWarehouse()
-      };
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'SYNC_UP', data }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-      
-      if (!response.ok) throw new Error('Network error');
-      setStatus('Sincronización completa ✅');
-    } catch (e) {
-      setStatus('Error al conectar. Verifique CORS y URL.');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (isOpen) {
+      setApiUrl(getApiConfig());
+      setSyncStatus('idle');
+      setStatusMessage('');
     }
-  };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
+  const handleSaveConfig = () => {
+    saveApiConfig(apiUrl);
+    setSyncStatus('success');
+    setStatusMessage('Configuración guardada localmente.');
+    setTimeout(() => setSyncStatus('idle'), 2000);
+  };
+
+  const handleSync = async () => {
+    setSyncStatus('loading');
+    const result = await syncWithGoogleSheets();
+    setSyncStatus(result.success ? 'success' : 'error');
+    setStatusMessage(result.message);
+  };
+
+  const handleExportJson = async () => {
+    const units = await getUnits();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(units, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "mantenimiento_backup.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-      <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl space-y-8 animate-in slide-in-from-bottom-8">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-             <div className="p-3 bg-black text-white rounded-2xl"><Database size={24} /></div>
-             <h2 className="text-2xl font-black uppercase tracking-tighter">Configuración</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden">
+        
+        <div className="bg-gray-900 text-white p-4 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Database size={20} />
+            <h2 className="text-lg font-bold">Administración de Base de Datos</h2>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={24} /></button>
+          <button onClick={onClose} className="hover:bg-gray-700 p-1 rounded transition">
+            <X size={20} />
+          </button>
         </div>
 
-        <div className="space-y-4">
-           <div>
-              <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest block mb-2">Endpoint de Google Sheets (Web App URL)</label>
+        <div className="p-6 space-y-6">
+          
+          {/* Connection Config */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              URL del Endpoint (Google Apps Script / Python API)
+            </label>
+            <div className="flex gap-2">
               <input 
-                className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm font-mono focus:ring-2 focus:ring-black outline-none"
-                value={url}
-                onChange={e => setUrl(e.target.value)}
+                type="text" 
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
                 placeholder="https://script.google.com/macros/s/..."
+                className="flex-1 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black outline-none font-mono"
               />
-           </div>
-           <button 
-             onClick={() => { sheetService.saveConfig(url); setStatus('URL Guardada localmente.'); }}
-             className="w-full py-4 bg-gray-100 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2"
-           >
-             <Save size={18} /> Guardar Cambios
-           </button>
-        </div>
+              <button 
+                onClick={handleSaveConfig}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-800 p-2.5 rounded-lg border border-gray-300 transition"
+                title="Guardar URL"
+              >
+                <Save size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Ingrese la URL de su Web App de Google Sheets o servidor Python para sincronizar los datos en tiempo real.
+            </p>
+          </div>
 
-        <div className="pt-8 border-t space-y-4">
-           <button 
-             onClick={handleSync}
-             disabled={loading}
-             className="w-full py-5 bg-black text-white rounded-3xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-black/20"
-           >
-             {loading ? <RefreshCw className="animate-spin" /> : <DownloadCloud />}
-             Subir Datos a la Nube
-           </button>
-           {status && <p className="text-center text-[10px] font-bold text-gray-500 uppercase">{status}</p>}
-        </div>
+          {/* Actions */}
+          <div className="border-t pt-6 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-900">Acciones de Datos</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                onClick={handleSync}
+                disabled={syncStatus === 'loading'}
+                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition disabled:opacity-70"
+              >
+                {syncStatus === 'loading' ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                Sincronizar
+              </button>
 
-        <div className="pt-8 space-y-2">
-            <h4 className="text-red-600 text-[10px] font-black uppercase tracking-widest">Zona de Peligro</h4>
-            <button 
-              onClick={() => { if(confirm("¿Borrar todo?")) { localStorage.clear(); window.location.reload(); } }}
-              className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase text-xs tracking-widest border border-red-100 flex items-center justify-center gap-2"
-            >
-              <Trash2 size={16} /> Reiniciar Aplicación
-            </button>
+              <button 
+                onClick={handleExportJson}
+                className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 py-3 px-4 rounded-lg transition"
+              >
+                <Download size={18} />
+                Exportar JSON
+              </button>
+            </div>
+          </div>
+
+          {/* Status Feedback */}
+          {statusMessage && (
+            <div className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
+              syncStatus === 'success' ? 'bg-green-50 text-green-700' : 
+              syncStatus === 'error' ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-600'
+            }`}>
+              {syncStatus === 'success' && <CheckCircle size={16} />}
+              {syncStatus === 'error' && <AlertCircle size={16} />}
+              {statusMessage}
+            </div>
+          )}
+
         </div>
       </div>
     </div>

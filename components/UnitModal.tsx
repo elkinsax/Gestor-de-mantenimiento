@@ -1,239 +1,352 @@
-import React, { useState } from 'react';
-import { MaintenanceUnit, Role, Status, InventoryItem, MaterialRequest, WarehouseItem } from '../types';
-import { X, Save, Plus, DollarSign, Package, QrCode, Trash2, Camera } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MaintenanceUnit, Role, Status, InventoryItem, MaterialRequest } from '../types';
+import Carousel from './Carousel';
+import { X, Save, Plus, Trash2, DollarSign, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
-interface Props {
+interface UnitModalProps {
   unit: MaintenanceUnit;
   role: Role;
   isOpen: boolean;
   onClose: () => void;
   onSave: (unit: MaintenanceUnit) => void;
-  warehouse: WarehouseItem[];
 }
 
-const UnitModal: React.FC<Props> = ({ unit, isOpen, onClose, onSave, warehouse }) => {
-  const [edited, setEdited] = useState<MaintenanceUnit>(unit);
-  const [tab, setTab] = useState<'info' | 'inventory' | 'costs' | 'qr'>('info');
+const UnitModal: React.FC<UnitModalProps> = ({ unit, role, isOpen, onClose, onSave }) => {
+  const [editedUnit, setEditedUnit] = useState<MaintenanceUnit>(unit);
+  const [activeTab, setActiveTab] = useState<'info' | 'inventory' | 'requests'>('info');
+  const [newRequestItem, setNewRequestItem] = useState('');
+  const [newRequestCost, setNewRequestCost] = useState(0);
+
+  useEffect(() => {
+    setEditedUnit(unit);
+  }, [unit]);
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
-    onSave({ ...edited, lastUpdated: new Date().toISOString() });
-  };
+  // Permissions
+  const canEdit = role === 'MAINTENANCE' || role === 'ADMIN';
+  const isTreasury = role === 'TREASURY' || role === 'ADMIN'; 
 
-  const addInventory = () => {
-    const newItem: InventoryItem = { id: Date.now().toString(), name: 'Nuevo Item', quantity: 1, condition: 'Good' };
-    setEdited({ ...edited, inventory: [...edited.inventory, newItem] });
-  };
-
-  const addRequest = (itemName: string) => {
-    const newReq: MaterialRequest = {
-      id: Date.now().toString(),
-      item: itemName,
-      quantity: 1,
-      estimatedCost: 0,
-      approved: false,
-      date: new Date().toISOString().split('T')[0]
-    };
-    setEdited({ ...edited, requests: [...edited.requests, newReq] });
-  };
-
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setEdited({ ...edited, images: [ev.target?.result as string, ...edited.images].slice(0, 5) });
-      };
-      reader.readAsDataURL(e.target.files[0]);
+  const handleStatusChange = (status: Status) => {
+    if (canEdit) {
+      setEditedUnit({ ...editedUnit, status });
     }
   };
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.origin + '?id=' + unit.id)}`;
+  const handleInventoryChange = (id: string, field: keyof InventoryItem, value: any) => {
+    if (!canEdit) return;
+    const newInventory = editedUnit.inventory.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    );
+    setEditedUnit({ ...editedUnit, inventory: newInventory });
+  };
+
+  const addInventoryItem = () => {
+    const newItem: InventoryItem = {
+      id: Date.now().toString(),
+      name: 'Nuevo Item',
+      quantity: 1,
+      condition: 'Good'
+    };
+    setEditedUnit({ ...editedUnit, inventory: [...editedUnit.inventory, newItem] });
+  };
+
+  const addRequest = () => {
+    if (!newRequestItem) return;
+    const req: MaterialRequest = {
+      id: Date.now().toString(),
+      item: newRequestItem,
+      quantity: 1,
+      estimatedCost: newRequestCost,
+      approved: false,
+      date: new Date().toISOString().split('T')[0]
+    };
+    setEditedUnit({ ...editedUnit, requests: [...editedUnit.requests, req] });
+    setNewRequestItem('');
+    setNewRequestCost(0);
+  };
+
+  const toggleApproval = (reqId: string) => {
+    if (!isTreasury) return;
+    const newRequests = editedUnit.requests.map(req => 
+      req.id === reqId ? { ...req, approved: !req.approved } : req
+    );
+    setEditedUnit({ ...editedUnit, requests: newRequests });
+  };
+
+  const handleImageUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setEditedUnit(prev => ({
+        ...prev,
+        images: [...prev.images, base64].slice(0, 5) // Max 5 photos
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const getStatusColor = (s: Status) => {
+    switch (s) {
+      case Status.OPERATIVE: return 'bg-blue-600 text-white';
+      case Status.PREVENTION: return 'bg-orange-500 text-white';
+      case Status.REPAIR: return 'bg-red-600 text-white';
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-hidden">
-      <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[2rem] shadow-2xl flex flex-col animate-in fade-in zoom-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-xl shadow-2xl flex flex-col">
         
         {/* Header */}
-        <div className="p-6 border-b flex justify-between items-center shrink-0">
+        <div className="flex justify-between items-center p-5 border-b sticky top-0 bg-white z-10">
           <div>
-            <h2 className="text-2xl font-black text-gray-900 leading-none">{edited.name}</h2>
-            <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">{edited.campus} • {edited.type}</p>
+            <h2 className="text-2xl font-bold text-gray-900">{editedUnit.name}</h2>
+            <p className="text-sm text-gray-500">{editedUnit.campus} • {editedUnit.type} • ID: {editedUnit.id}</p>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={24} /></button>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition">
+            <X size={24} />
+          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex bg-gray-50 px-2 pt-2 gap-2 shrink-0">
-          {[
-            { id: 'info', label: 'Info', icon: <Package size={16} /> },
-            { id: 'inventory', label: 'Inventario', icon: <Package size={16} /> },
-            { id: 'costs', label: 'Gastos', icon: <DollarSign size={16} /> },
-            { id: 'qr', label: 'QR', icon: <QrCode size={16} /> },
-          ].map(t => (
-            <button 
-              key={t.id}
-              onClick={() => setTab(t.id as any)}
-              className={`flex-1 py-3 px-2 rounded-t-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition ${tab === t.id ? 'bg-white text-black shadow-sm' : 'text-gray-400'}`}
-            >
-              {t.icon} <span className="hidden sm:inline">{t.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
-          
-          {tab === 'info' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {Object.values(Status).map(s => (
-                  <button 
-                    key={s}
-                    onClick={() => setEdited({...edited, status: s})}
-                    className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border-4 transition ${edited.status === s ? 'border-black bg-gray-100 text-black' : 'border-transparent bg-gray-50 text-gray-400'}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest block">Bitácora / Descripción</label>
-                <textarea 
-                  className="w-full bg-gray-50 border-none rounded-3xl p-4 text-sm focus:ring-2 focus:ring-black min-h-[120px]"
-                  value={edited.description}
-                  onChange={e => setEdited({...edited, description: e.target.value})}
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Left Column: Visuals & Status */}
+            <div className="p-6 space-y-6">
+              <div className="rounded-lg overflow-hidden shadow-md">
+                <Carousel 
+                  images={editedUnit.images} 
+                  heightClass="h-72" 
+                  editable={canEdit}
+                  onUpload={handleImageUpload}
                 />
               </div>
 
+              {/* Semaphore Controls */}
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">Estado Actual (Semaforización)</h3>
+                <div className="flex gap-2">
+                  {(Object.keys(Status) as Array<keyof typeof Status>).map((key) => {
+                    const statusValue = Status[key];
+                    const isSelected = editedUnit.status === statusValue;
+                    const baseClass = "flex-1 py-3 px-2 rounded-md text-sm font-medium transition-all duration-200 border-2 flex flex-col items-center gap-1";
+                    
+                    let activeClass = "";
+                    if (statusValue === Status.OPERATIVE) activeClass = isSelected ? "border-blue-600 bg-blue-50 text-blue-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
+                    if (statusValue === Status.PREVENTION) activeClass = isSelected ? "border-orange-500 bg-orange-50 text-orange-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
+                    if (statusValue === Status.REPAIR) activeClass = isSelected ? "border-red-600 bg-red-50 text-red-700" : "border-transparent bg-white text-gray-500 hover:bg-gray-100";
+
+                    return (
+                      <button
+                        key={key}
+                        disabled={!canEdit}
+                        onClick={() => handleStatusChange(statusValue)}
+                        className={`${baseClass} ${activeClass} ${!canEdit ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      >
+                         {statusValue === Status.OPERATIVE && <CheckCircle size={20} className={isSelected ? 'text-blue-600' : 'text-gray-400'} />}
+                         {statusValue === Status.PREVENTION && <Clock size={20} className={isSelected ? 'text-orange-500' : 'text-gray-400'} />}
+                         {statusValue === Status.REPAIR && <AlertTriangle size={20} className={isSelected ? 'text-red-600' : 'text-gray-400'} />}
+                        <span>{statusValue === Status.OPERATIVE ? 'Operativo' : statusValue === Status.PREVENTION ? 'Prevención' : 'Reparación'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="space-y-2">
-                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest block">Fotos Recientes (Máx 5)</label>
-                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                    <label className="shrink-0 w-24 h-24 bg-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-200 border-2 border-dashed border-gray-300">
-                       <Camera size={24} />
-                       <span className="text-[8px] font-black">Subir</span>
-                       <input type="file" className="hidden" accept="image/*" onChange={handleImage} />
-                    </label>
-                    {edited.images.map((img, i) => (
-                      <div key={i} className="shrink-0 w-24 h-24 rounded-2xl overflow-hidden relative group">
-                         <img src={img} className="w-full h-full object-cover" />
-                         <button 
-                            onClick={() => setEdited({...edited, images: edited.images.filter((_, idx) => idx !== i)})}
-                            className="absolute inset-0 bg-red-600/80 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition"
-                          >
-                            <Trash2 size={16} />
-                         </button>
-                      </div>
-                    ))}
-                 </div>
+                <label className="block text-sm font-medium text-gray-700">Bitácora / Descripción</label>
+                <textarea
+                  className="w-full border rounded-md p-3 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none transition"
+                  rows={5}
+                  value={editedUnit.description}
+                  disabled={!canEdit}
+                  onChange={(e) => setEditedUnit({...editedUnit, description: e.target.value})}
+                  placeholder="Descripción del estado, novedades o requerimientos..."
+                />
               </div>
             </div>
-          )}
 
-          {tab === 'inventory' && (
-             <div className="space-y-4">
-               <button onClick={addInventory} className="w-full py-4 bg-gray-100 rounded-2xl flex items-center justify-center gap-2 font-black uppercase text-xs">
-                 <Plus size={16} /> Agregar Item al Salón
-               </button>
-               {edited.inventory.map(item => (
-                 <div key={item.id} className="bg-gray-50 p-4 rounded-2xl flex items-center gap-4">
-                    <input 
-                      className="flex-1 bg-transparent border-none font-bold text-sm"
-                      value={item.name}
-                      onChange={e => {
-                        const inv = edited.inventory.map(i => i.id === item.id ? {...i, name: e.target.value} : i);
-                        setEdited({...edited, inventory: inv});
-                      }}
-                    />
-                    <select 
-                      className="bg-transparent border-none text-xs font-bold text-gray-500"
-                      value={item.condition}
-                      onChange={e => {
-                        const inv = edited.inventory.map(i => i.id === item.id ? {...i, condition: e.target.value as any} : i);
-                        setEdited({...edited, inventory: inv});
-                      }}
-                    >
-                      <option value="Good">Bueno</option>
-                      <option value="Fair">Regular</option>
-                      <option value="Poor">Malo</option>
-                    </select>
-                    <button onClick={() => setEdited({...edited, inventory: edited.inventory.filter(i => i.id !== item.id)})} className="text-red-400"><Trash2 size={18} /></button>
-                 </div>
-               ))}
-             </div>
-          )}
+            {/* Right Column: Tabs */}
+            <div className="border-l border-gray-100 flex flex-col h-full bg-gray-50/50">
+              <div className="flex border-b bg-white">
+                <button 
+                  onClick={() => setActiveTab('inventory')}
+                  className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'inventory' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  <Package size={18} /> Inventario
+                </button>
+                <button 
+                  onClick={() => setActiveTab('requests')}
+                  className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'requests' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  <DollarSign size={18} /> Costos & Solicitudes
+                </button>
+              </div>
 
-          {tab === 'costs' && (
-            <div className="space-y-6">
-               <div className="bg-black text-white p-4 rounded-3xl">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Cargar Material del Almacén</span>
-                  <select 
-                    onChange={e => addRequest(e.target.value)}
-                    className="w-full mt-2 bg-gray-800 border-none rounded-xl text-sm"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>Seleccione material...</option>
-                    {warehouse.map(w => <option key={w.id} value={w.name}>{w.name} (Disp: {w.quantity})</option>)}
-                  </select>
-               </div>
-
-               <div className="space-y-3">
-                  {edited.requests.map(req => (
-                    <div key={req.id} className="bg-gray-50 p-4 rounded-2xl flex items-center justify-between">
-                       <div className="flex-1">
-                          <p className="font-bold text-sm">{req.item}</p>
-                          <span className="text-[10px] text-gray-400">{req.date}</span>
-                       </div>
-                       <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <span className="absolute left-2 top-2 text-[10px] font-black">$</span>
-                            <input 
-                              type="number"
-                              className="bg-white border rounded-xl pl-4 pr-2 py-1.5 text-xs w-24 font-bold"
-                              value={req.estimatedCost}
-                              onChange={e => {
-                                const rs = edited.requests.map(r => r.id === req.id ? {...r, estimatedCost: parseFloat(e.target.value)} : r);
-                                setEdited({...edited, requests: rs});
-                              }}
-                            />
-                          </div>
-                          <button 
-                            onClick={() => {
-                              const rs = edited.requests.map(r => r.id === req.id ? {...r, approved: !r.approved} : r);
-                              setEdited({...edited, requests: rs});
-                            }}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition ${req.approved ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}
-                          >
-                            {req.approved ? 'Aprobado' : 'Aprobar'}
-                          </button>
-                       </div>
+              <div className="p-6 flex-1 overflow-y-auto">
+                {activeTab === 'inventory' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-semibold text-gray-900">Activos Fijos</h4>
+                        {canEdit && (
+                            <button onClick={addInventoryItem} className="text-xs bg-black text-white px-3 py-1.5 rounded hover:bg-gray-800 transition flex items-center gap-1">
+                                <Plus size={14} /> Agregar Item
+                            </button>
+                        )}
                     </div>
-                  ))}
-               </div>
-            </div>
-          )}
+                    
+                    {editedUnit.inventory.map((item) => (
+                      <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex items-center gap-4">
+                        <div className="flex-1">
+                          {canEdit ? (
+                            <input 
+                              value={item.name} 
+                              onChange={(e) => handleInventoryChange(item.id, 'name', e.target.value)}
+                              className="font-medium text-gray-900 w-full border-b border-dashed border-gray-300 focus:border-black outline-none bg-transparent py-1"
+                            />
+                          ) : (
+                            <p className="font-medium text-gray-900">{item.name}</p>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">Cant:</span>
+                             {canEdit ? (
+                                <input 
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => handleInventoryChange(item.id, 'quantity', parseInt(e.target.value))}
+                                  className="w-12 text-center border rounded py-1 text-sm"
+                                />
+                             ) : (
+                                <span className="font-mono">{item.quantity}</span>
+                             )}
+                        </div>
 
-          {tab === 'qr' && (
-            <div className="flex flex-col items-center justify-center space-y-4 py-8">
-               <div className="bg-white p-6 rounded-[2rem] shadow-xl border-8 border-gray-50">
-                  <img src={qrUrl} className="w-64 h-64" />
-               </div>
-               <div className="text-center">
-                  <p className="font-black text-lg">Control de Acceso QR</p>
-                  <p className="text-xs text-gray-400 max-w-xs mt-2">Pegue este código en la puerta de la unidad para que cualquier profesor pueda reportar fallas instantáneamente.</p>
-                  <button onClick={() => window.print()} className="mt-6 px-8 py-3 bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest">Imprimir Etiqueta</button>
-               </div>
+                        <div className="w-24">
+                            {canEdit ? (
+                                <select 
+                                    value={item.condition}
+                                    onChange={(e) => handleInventoryChange(item.id, 'condition', e.target.value)}
+                                    className="w-full text-xs border rounded py-1"
+                                >
+                                    <option value="Good">Bueno</option>
+                                    <option value="Fair">Regular</option>
+                                    <option value="Poor">Malo</option>
+                                </select>
+                            ) : (
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                    item.condition === 'Good' ? 'bg-green-100 text-green-800' : 
+                                    item.condition === 'Fair' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                    {item.condition === 'Good' ? 'Bueno' : item.condition === 'Fair' ? 'Regular' : 'Malo'}
+                                </span>
+                            )}
+                        </div>
+                      </div>
+                    ))}
+                    {editedUnit.inventory.length === 0 && (
+                        <p className="text-center text-gray-400 py-8 text-sm">No hay inventario registrado.</p>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'requests' && (
+                  <div className="space-y-6">
+                    {/* Add Request Form */}
+                    {canEdit && (
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <h4 className="text-sm font-semibold text-blue-800 mb-3">Nueva Solicitud / Factura</h4>
+                        <div className="flex flex-col gap-3">
+                            <input 
+                                placeholder="Nombre del material / servicio"
+                                className="w-full text-sm border p-2 rounded"
+                                value={newRequestItem}
+                                onChange={(e) => setNewRequestItem(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <span className="absolute left-2 top-2 text-gray-500 text-sm">$</span>
+                                    <input 
+                                        type="number"
+                                        placeholder="Costo Est."
+                                        className="w-full text-sm border p-2 pl-6 rounded"
+                                        value={newRequestCost || ''}
+                                        onChange={(e) => setNewRequestCost(parseFloat(e.target.value))}
+                                    />
+                                </div>
+                                <button onClick={addRequest} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                                    Solicitar
+                                </button>
+                            </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                        <h4 className="font-semibold text-gray-900 mb-4 flex justify-between items-center">
+                            Historial de Solicitudes
+                            <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">Total: ${editedUnit.requests.reduce((acc, curr) => curr.approved ? acc + curr.estimatedCost : acc, 0).toLocaleString()}</span>
+                        </h4>
+                        <div className="space-y-3">
+                            {editedUnit.requests.map((req) => (
+                                <div key={req.id} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="font-medium text-sm text-gray-900">{req.item}</span>
+                                        <span className="font-mono text-sm text-gray-600">${req.estimatedCost.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-gray-400">{req.date}</span>
+                                        {isTreasury ? (
+                                            <button 
+                                                onClick={() => toggleApproval(req.id)}
+                                                className={`text-xs px-3 py-1 rounded-full border transition ${
+                                                    req.approved 
+                                                    ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
+                                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                {req.approved ? 'Aprobado' : 'Aprobar Gasto'}
+                                            </button>
+                                        ) : (
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${req.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                {req.approved ? 'Aprobado' : 'Pendiente'}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            {editedUnit.requests.length === 0 && (
+                                <p className="text-center text-gray-400 py-8 text-sm italic">Sin solicitudes pendientes.</p>
+                            )}
+                        </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-6 border-t bg-gray-50 shrink-0 flex gap-3">
-           <button onClick={onClose} className="flex-1 py-4 text-gray-500 font-black uppercase text-xs tracking-widest">Cerrar</button>
-           <button onClick={handleSave} className="flex-[2] py-4 bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-black/20 flex items-center justify-center gap-2">
-             <Save size={18} /> Guardar Cambios
-           </button>
+        {/* Footer Actions */}
+        <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
+            <button 
+                onClick={onClose}
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-md transition"
+            >
+                Cancelar
+            </button>
+            {(canEdit || isTreasury) && (
+                <button 
+                    onClick={() => onSave(editedUnit)}
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-md shadow-sm transition flex items-center gap-2"
+                >
+                    <Save size={16} />
+                    Guardar Cambios
+                </button>
+            )}
         </div>
       </div>
     </div>
