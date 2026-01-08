@@ -131,8 +131,13 @@ const WarehouseModal: React.FC<WarehouseModalProps> = ({ isOpen, onClose }) => {
             <Package size={20} />
             <h2 className="text-xl font-bold">Gestión de Almacén y Herramientas</h2>
           </div>
-          <button onClick={onClose} className="hover:bg-gray-700 p-1.5 rounded-full transition">
-            <X size={20} />
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onClose(); }} 
+            className="hover:bg-gray-700 p-2 rounded-full transition-colors active:scale-95"
+            aria-label="Cerrar almacén"
+          >
+            <X size={24} />
           </button>
         </div>
 

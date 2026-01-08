@@ -79,8 +79,10 @@ const App: React.FC = () => {
   };
 
   const handleCloseWarehouse = () => {
-    loadOrgData();
+    // Cerramos primero para respuesta visual inmediata
     setIsWarehouseOpen(false);
+    // Luego actualizamos los datos en segundo plano
+    setTimeout(loadOrgData, 0);
   };
 
   if (!currentOrg || !role) {
