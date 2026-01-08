@@ -15,8 +15,12 @@ const getCurrentOrgId = () => {
 
 // --- ORGANIZATIONS ---
 export const getSavedOrganizations = (): Organization[] => {
-  const data = localStorage.getItem(ORGS_KEY);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(ORGS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
 };
 
 export const saveOrganization = (org: Organization) => {
@@ -29,50 +33,68 @@ export const saveOrganization = (org: Organization) => {
 // --- DATA ACCESS (Scoped by Org) ---
 export const getUnits = (orgId: string = getCurrentOrgId()): MaintenanceUnit[] => {
   if (!orgId) return [];
-  const data = localStorage.getItem(getOrgKey(orgId, 'units'));
-  // Si no hay datos, devolvemos los iniciales pero marcados con esta Org
-  return data ? JSON.parse(data) : INITIAL_UNITS.map(u => ({ ...u, orgId }));
+  try {
+    const data = localStorage.getItem(getOrgKey(orgId, 'units'));
+    return data ? JSON.parse(data) : INITIAL_UNITS.map(u => ({ ...u, orgId }));
+  } catch (e) {
+    return [];
+  }
 };
 
 export const saveUnits = (orgId: string, units: MaintenanceUnit[]) => {
+  if (!orgId) return;
   localStorage.setItem(getOrgKey(orgId, 'units'), JSON.stringify(units));
 };
 
 export const getCampuses = (orgId: string = getCurrentOrgId()): string[] => {
   if (!orgId) return [];
-  const data = localStorage.getItem(getOrgKey(orgId, 'campuses'));
-  if (data) return JSON.parse(data);
-  const units = getUnits(orgId);
-  const campuses = Array.from(new Set(units.map(u => u.campus)));
-  saveCampuses(orgId, campuses);
-  return campuses;
+  try {
+    const data = localStorage.getItem(getOrgKey(orgId, 'campuses'));
+    if (data) return JSON.parse(data);
+    const units = getUnits(orgId);
+    const campuses = Array.from(new Set(units.map(u => u.campus)));
+    saveCampuses(orgId, campuses);
+    return campuses;
+  } catch (e) {
+    return ["Sede Única"];
+  }
 };
 
 export const saveCampuses = (orgId: string, campuses: string[]) => {
+  if (!orgId) return;
   localStorage.setItem(getOrgKey(orgId, 'campuses'), JSON.stringify(campuses));
 };
 
 export const getTools = (orgId: string = getCurrentOrgId()): Tool[] => {
   if (!orgId) return [];
-  const data = localStorage.getItem(getOrgKey(orgId, 'tools'));
-  return data ? JSON.parse(data) : INITIAL_TOOLS.map(t => ({ ...t, orgId }));
+  try {
+    const data = localStorage.getItem(getOrgKey(orgId, 'tools'));
+    return data ? JSON.parse(data) : INITIAL_TOOLS.map(t => ({ ...t, orgId }));
+  } catch (e) {
+    return [];
+  }
 };
 
 export const saveTools = (orgId: string, tools: Tool[]) => {
+  if (!orgId) return;
   localStorage.setItem(getOrgKey(orgId, 'tools'), JSON.stringify(tools));
 };
 
 export const getWarehouse = (orgId: string = getCurrentOrgId()): WarehouseItem[] => {
   if (!orgId) return [];
-  const data = localStorage.getItem(getOrgKey(orgId, 'warehouse'));
-  return data ? JSON.parse(data) : INITIAL_WAREHOUSE.map(w => ({ ...w, orgId }));
+  try {
+    const data = localStorage.getItem(getOrgKey(orgId, 'warehouse'));
+    return data ? JSON.parse(data) : INITIAL_WAREHOUSE.map(w => ({ ...w, orgId }));
+  } catch (e) {
+    return [];
+  }
 };
 
 export const saveWarehouse = (orgId: string, items: WarehouseItem[]) => {
+  if (!orgId) return;
   localStorage.setItem(getOrgKey(orgId, 'warehouse'), JSON.stringify(items));
 };
 
-// Fix: Added missing tool update functions for WarehouseModal
 export const updateTool = async (updatedTool: Tool): Promise<Tool[]> => {
   const orgId = updatedTool.orgId || getCurrentOrgId();
   const tools = getTools(orgId);
@@ -89,7 +111,6 @@ export const addTool = async (newTool: Tool): Promise<Tool[]> => {
   return newTools;
 };
 
-// Fix: Added missing warehouse update functions for WarehouseModal
 export const updateWarehouseItem = async (updatedItem: WarehouseItem): Promise<WarehouseItem[]> => {
   const orgId = updatedItem.orgId || getCurrentOrgId();
   const items = getWarehouse(orgId);
@@ -107,15 +128,18 @@ export const addWarehouseItem = async (newItem: WarehouseItem): Promise<Warehous
 };
 
 export const getAuthData = (): AuthData => {
-  const data = localStorage.getItem('saas_auth_data');
-  return data ? JSON.parse(data) : {};
+  try {
+    const data = localStorage.getItem('saas_auth_data');
+    return data ? JSON.parse(data) : {};
+  } catch (e) {
+    return {};
+  }
 };
 
 export const saveAuthData = (data: AuthData) => {
   localStorage.setItem('saas_auth_data', JSON.stringify(data));
 };
 
-// Fix: Added missing API config and sync functions for AdminSettingsModal
 export const getApiConfig = (): string => {
   return localStorage.getItem(API_CONFIG_KEY) || '';
 };
@@ -126,14 +150,11 @@ export const saveApiConfig = (url: string) => {
 
 export const syncWithGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
   const url = getApiConfig();
-  if (!url) {
-    return { success: false, message: 'No se ha configurado la URL del API.' };
-  }
+  if (!url) return { success: false, message: 'URL no configurada.' };
 
   const orgId = getCurrentOrgId();
   try {
     const payload = {
-      timestamp: new Date().toISOString(),
       action: 'SYNC_UP',
       orgId,
       data: {
@@ -148,42 +169,24 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
     const response = await fetch(url, {
       method: 'POST',
       body: JSON.stringify(payload),
-      headers: { 
-        'Content-Type': 'text/plain' 
-      }
+      headers: { 'Content-Type': 'text/plain' }
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
-    return { 
-      success: true, 
-      message: result.message || 'Datos enviados correctamente al servidor.' 
-    };
-
+    return { success: true, message: result.message || 'Sincronizado.' };
   } catch (error: any) {
-    console.error("Sync Error:", error);
-    return { 
-      success: false, 
-      message: `Error de conexión: ${error.message || 'Desconocido'}.` 
-    };
+    return { success: false, message: error.message };
   }
 };
 
 export const fetchFromGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
   const url = getApiConfig();
-  if (!url) {
-    return { success: false, message: 'No se ha configurado la URL del API.' };
-  }
+  if (!url) return { success: false, message: 'URL no configurada.' };
 
   try {
     const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
     if (result.status === 'success') {
       const orgId = getCurrentOrgId();
@@ -192,16 +195,11 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
       saveTools(orgId, result.data.tools);
       saveWarehouse(orgId, result.data.warehouse);
       saveAuthData(result.data.auth);
-      return { success: true, message: 'Datos descargados correctamente.' };
+      return { success: true, message: 'Descargado.' };
     }
-    return { success: false, message: result.message || 'Error al obtener datos.' };
-
+    return { success: false, message: result.message };
   } catch (error: any) {
-    console.error("Fetch Error:", error);
-    return { 
-      success: false, 
-      message: `Error de conexión: ${error.message || 'Desconocido'}.` 
-    };
+    return { success: false, message: error.message };
   }
 };
 
@@ -224,7 +222,5 @@ export const sheetService = {
   getAuthData,
   saveAuthData,
   resetData,
-  syncOrgWithCloud: async () => {
-    return syncWithGoogleSheets();
-  }
+  syncOrgWithCloud: async () => syncWithGoogleSheets()
 };

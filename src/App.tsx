@@ -39,11 +39,16 @@ const App: React.FC = () => {
   }, [currentOrg]);
 
   const loadOrgData = () => {
-    const orgId = currentOrg!.id;
-    setUnits(sheetService.getUnits(orgId));
-    setAvailableCampuses(sheetService.getCampuses(orgId));
-    setTools(sheetService.getTools(orgId));
-    setWarehouse(sheetService.getWarehouse(orgId));
+    if (!currentOrg) return;
+    try {
+      const orgId = currentOrg.id;
+      setUnits(sheetService.getUnits(orgId));
+      setAvailableCampuses(sheetService.getCampuses(orgId));
+      setTools(sheetService.getTools(orgId));
+      setWarehouse(sheetService.getWarehouse(orgId));
+    } catch (error) {
+      console.error("Error al cargar datos:", error);
+    }
   };
 
   const handleLogin = (org: Organization, role: Role) => {
@@ -71,11 +76,16 @@ const App: React.FC = () => {
     setIsCreateUnitOpen(false);
   };
 
-  // Fixed: syncOrgWithCloud expects 0 arguments as per its definition in sheetService.ts
   const handleSync = async () => {
     setSyncing(true);
     await sheetService.syncOrgWithCloud();
     setSyncing(false);
+  };
+
+  const handleCloseWarehouse = () => {
+    setIsWarehouseOpen(false);
+    // Recargamos datos solo si es necesario tras cerrar
+    loadOrgData();
   };
 
   if (!currentOrg || !role) {
@@ -99,13 +109,13 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
-           <button onClick={handleSync} className={`p-2 hover:bg-white/10 rounded-full transition ${syncing ? 'animate-spin' : ''}`}>
+           <button onClick={handleSync} title="Sincronizar" className={`p-2 hover:bg-white/10 rounded-full transition ${syncing ? 'animate-spin' : ''}`}>
              <RefreshCw size={20} />
            </button>
-           <button onClick={() => setIsAdminSettingsOpen(true)} className="p-2 hover:bg-white/10 rounded-full">
+           <button onClick={() => setIsAdminSettingsOpen(true)} title="Configuración" className="p-2 hover:bg-white/10 rounded-full">
              <Settings size={20} />
            </button>
-           <button onClick={handleLogout} className="p-2 text-red-500 hover:bg-red-500/10 rounded-full">
+           <button onClick={handleLogout} title="Cerrar Sesión" className="p-2 text-red-500 hover:bg-red-500/10 rounded-full">
              <LogOut size={20} />
            </button>
         </div>
@@ -153,7 +163,7 @@ const App: React.FC = () => {
       {selectedUnit && (
         <UnitModal unit={selectedUnit} role={role} isOpen={true} onClose={() => setSelectedUnit(null)} onSave={handleSaveUnit} warehouse={warehouse} />
       )}
-      {isWarehouseOpen && <WarehouseModal isOpen={true} onClose={loadOrgData} />}
+      {isWarehouseOpen && <WarehouseModal onClose={handleCloseWarehouse} />}
       {isAdminSettingsOpen && <AdminSettingsModal isOpen={true} onClose={() => setIsAdminSettingsOpen(false)} />}
       {isCreateUnitOpen && <CreateUnitModal isOpen={true} campuses={availableCampuses} onClose={() => setIsCreateUnitOpen(false)} onSave={handleCreateUnit} />}
     </div>
