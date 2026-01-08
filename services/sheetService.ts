@@ -54,7 +54,8 @@ export const getCampuses = async (): Promise<string[]> => {
     // Fix: Explicitly cast JSON.parse result to string[] to resolve 'unknown[]' to 'string[]' assignment error
     return JSON.parse(stored) as string[];
   }
-  const derivedCampuses = Array.from(new Set(INITIAL_UNITS.map(u => u.campus)));
+  // Added explicit type cast to string[] to fix 'unknown[]' inference issue reported on line 59
+  const derivedCampuses = Array.from(new Set(INITIAL_UNITS.map(u => u.campus))) as string[];
   localStorage.setItem(CAMPUS_KEY, JSON.stringify(derivedCampuses));
   return derivedCampuses;
 };

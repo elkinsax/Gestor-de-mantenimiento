@@ -1,5 +1,4 @@
 
-
 import { MaintenanceUnit, Tool, WarehouseItem } from '../types';
 import { INITIAL_UNITS, INITIAL_TOOLS, INITIAL_WAREHOUSE } from '../constants';
 
@@ -30,8 +29,7 @@ export const getAuthData = (): {[key: string]: string} => getStored(AUTH_KEY, {}
 export const saveAuthData = (data: {[key: string]: string}) => setStored(AUTH_KEY, data);
 export const checkPassword = (role: string, pass: string): boolean => {
     const auth = getAuthData();
-    // In a real app, this would be a hash check. For this demo, it's direct.
-    return auth[role] === pass || pass === 'admin123'; // Fallback for testing
+    return auth[role] === pass || pass === 'admin123';
 };
 
 // --- CONFIG ---
@@ -60,7 +58,6 @@ export const createUnit = async (newUnit: MaintenanceUnit): Promise<MaintenanceU
 // --- CAMPUSES ---
 export const getCampuses = async (): Promise<string[]> => {
   const stored = localStorage.getItem(CAMPUS_KEY);
-  // Fix: Explicitly cast JSON.parse result to string[] to resolve 'unknown[]' to 'string[]' assignment error
   if (stored) return JSON.parse(stored) as string[];
   const derivedCampuses = Array.from(new Set(INITIAL_UNITS.map(u => u.campus)));
   setStored(CAMPUS_KEY, derivedCampuses);
@@ -184,7 +181,6 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
 };
 
 export const saveUnitToCloud = async (_unit: MaintenanceUnit) => {
-    // For simplicity, we sync the whole state
     return syncWithGoogleSheets();
 };
 
