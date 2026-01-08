@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Role, Organization } from '../types';
 import { sheetService } from '../services/sheetService';
-import { ShieldCheck, User, Wrench, Wallet, Lock, ArrowRight, Building, Plus, X, Globe, CreditCard, Upload, Image as ImageIcon } from 'lucide-react';
+import { ShieldCheck, User, Wrench, Wallet, Lock, ArrowRight, Building, Plus, X, Globe, CreditCard, Upload } from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: (org: Organization, role: Role) => void;
