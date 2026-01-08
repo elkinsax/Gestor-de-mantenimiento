@@ -1,6 +1,4 @@
-
-// Fix: Added missing User interface and updated Role and Status definitions to support SaaS features required by App.tsx
-export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN' | 'SOLICITOR' | 'SAAS_OWNER';
+export type Role = 'ADMIN' | 'MAINTENANCE' | 'TREASURY' | 'SOLICITOR';
 
 export enum Status {
   OPERATIVE = 'OPERATIVE',
@@ -11,37 +9,17 @@ export enum Status {
 
 export type ToolStatus = 'AVAILABLE' | 'IN_USE' | 'BROKEN';
 
-// SaaS Core: Organization/Tenant structure
-export interface Organization {
-  id: string;
-  name: string;
-  slug: string; // unique identifier in URL (e.g., 'colegio-boston')
-  logoUrl?: string;
-  subscriptionPlan: 'FREE' | 'PRO' | 'ENTERPRISE';
-  createdAt: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  role: Role;
-  organizationId: string;
-  fullName: string;
-}
-
 export interface Tool {
   id: string;
-  organizationId?: string; // Optional for local demo
   name: string;
   status: ToolStatus;
   assignedTo?: string;
   assignedDate?: string;
-  image?: string; // Renamed from imageUrl to match component usage
+  image?: string;
 }
 
 export interface WarehouseItem {
   id: string;
-  organizationId?: string; // Optional for local demo
   name: string;
   category: string;
   quantity: number;
@@ -62,18 +40,16 @@ export interface MaterialRequest {
   estimatedCost: number;
   approved: boolean;
   date: string;
-  requestedBy?: string; // Optional for local demo
 }
 
 export interface MaintenanceUnit {
   id: string;
-  organizationId?: string; // Optional for local demo
   campus: string;
   name: string;
   type: string;
   description: string;
   status: Status;
-  images: string[]; // Renamed from imageUrls to match component usage
+  images: string[];
   inventory: InventoryItem[];
   requests: MaterialRequest[];
   lastUpdated: string;
