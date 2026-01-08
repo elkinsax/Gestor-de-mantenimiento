@@ -1,3 +1,4 @@
+
 import { INITIAL_UNITS, INITIAL_TOOLS, INITIAL_WAREHOUSE } from '../constants';
 import { MaintenanceUnit, Tool, WarehouseItem, AuthData, Organization } from '../types';
 
@@ -223,8 +224,7 @@ export const sheetService = {
   getAuthData,
   saveAuthData,
   resetData,
-  // Fix: Added missing syncOrgWithCloud for App component
-  syncOrgWithCloud: async (org: Organization) => {
+  syncOrgWithCloud: async (_org: Organization) => {
     return syncWithGoogleSheets();
   }
 };

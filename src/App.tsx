@@ -1,15 +1,15 @@
+
 import React, { useEffect, useState } from 'react';
 import { MaintenanceUnit, Role, Status, Tool, WarehouseItem, Organization } from './types';
 import { sheetService } from './services/sheetService';
 import UnitCard from './components/UnitCard';
 import UnitModal from './components/UnitModal';
 import CreateUnitModal from './components/CreateUnitModal';
-import ManageCampusesModal from './components/ManageCampusesModal';
 import AdminSettingsModal from './components/AdminSettingsModal';
 import WarehouseModal from './components/WarehouseModal';
 import LoginScreen from './components/LoginScreen';
 import GeneralDashboard from './components/GeneralDashboard';
-import { Settings, Filter, MapPin, Plus, Building, Package, LayoutDashboard, ArrowLeft, LogOut, Cloud, RefreshCw } from 'lucide-react';
+import { Settings, MapPin, Plus, LogOut, RefreshCw } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
@@ -19,20 +19,17 @@ const App: React.FC = () => {
   const [tools, setTools] = useState<Tool[]>([]);
   const [warehouse, setWarehouse] = useState<WarehouseItem[]>([]);
   const [availableCampuses, setAvailableCampuses] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
   
   const [showGlobalDashboard, setShowGlobalDashboard] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   // Modals
   const [selectedUnit, setSelectedUnit] = useState<MaintenanceUnit | null>(null);
-  const [isManageCampusesOpen, setIsManageCampusesOpen] = useState(false);
   const [isCreateUnitOpen, setIsCreateUnitOpen] = useState(false);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
   const [isWarehouseOpen, setIsWarehouseOpen] = useState(false);
 
   // Filters
-  const [filterStatus, setFilterStatus] = useState<Status | 'ALL'>('ALL');
   const [selectedCampus, setSelectedCampus] = useState<string>('TODAS');
 
   useEffect(() => {
@@ -42,13 +39,11 @@ const App: React.FC = () => {
   }, [currentOrg]);
 
   const loadOrgData = () => {
-    setLoading(true);
     const orgId = currentOrg!.id;
     setUnits(sheetService.getUnits(orgId));
     setAvailableCampuses(sheetService.getCampuses(orgId));
     setTools(sheetService.getTools(orgId));
     setWarehouse(sheetService.getWarehouse(orgId));
-    setLoading(false);
   };
 
   const handleLogin = (org: Organization, role: Role) => {
@@ -87,14 +82,7 @@ const App: React.FC = () => {
   }
 
   const filteredUnits = units
-    .filter(u => selectedCampus === 'TODAS' || u.campus === selectedCampus)
-    .filter(u => filterStatus === 'ALL' || u.status === filterStatus);
-
-  const stats = {
-    operative: units.filter(u => u.status === Status.OPERATIVE).length,
-    repair: units.filter(u => u.status === Status.REPAIR).length,
-    requests: units.filter(u => u.status === Status.REQUEST).length
-  };
+    .filter(u => selectedCampus === 'TODAS' || u.campus === selectedCampus);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
