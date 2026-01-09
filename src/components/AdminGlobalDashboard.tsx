@@ -9,11 +9,8 @@ import {
   Settings, 
   Plus, 
   Search, 
-  MoreVertical, 
   Trash2, 
   Edit, 
-  ExternalLink,
-  ChevronRight,
   LogOut,
   Globe,
   Database,
@@ -26,7 +23,6 @@ interface AdminGlobalDashboardProps {
 
 const AdminGlobalDashboard: React.FC<AdminGlobalDashboardProps> = ({ onLogout }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Modal State
@@ -38,10 +34,8 @@ const AdminGlobalDashboard: React.FC<AdminGlobalDashboardProps> = ({ onLogout })
   }, []);
 
   const loadOrgs = async () => {
-    setLoading(true);
     const data = await sheetService.fetchGlobalOrganizations();
     setOrganizations(data);
-    setLoading(false);
   };
 
   const handleSaveOrg = async (e: React.FormEvent) => {
@@ -161,7 +155,6 @@ const AdminGlobalDashboard: React.FC<AdminGlobalDashboardProps> = ({ onLogout })
                       <th className="px-6 py-4">Institución</th>
                       <th className="px-6 py-4">ID de Cliente</th>
                       <th className="px-6 py-4">Plan</th>
-                      <th className="px-6 py-4">Endpoint API</th>
                       <th className="px-6 py-4 text-right">Acciones</th>
                     </tr>
                   </thead>
@@ -182,15 +175,6 @@ const AdminGlobalDashboard: React.FC<AdminGlobalDashboardProps> = ({ onLogout })
                           }`}>
                             {org.plan}
                           </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {org.sheetsUrl ? (
-                            <div className="flex items-center gap-2 text-xs text-blue-500 font-medium">
-                              <Database size={14} /> Vinculado
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic">No configurado</span>
-                          )}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
