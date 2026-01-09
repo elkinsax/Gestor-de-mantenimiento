@@ -5,15 +5,70 @@ import { MaintenanceUnit, Tool, WarehouseItem, AuthData, Organization } from '..
 const STORAGE_PREFIX = 'saas_maint_v1_';
 const ORGS_KEY = 'saas_organizations_registry';
 const API_CONFIG_KEY = 'saas_api_config_v1';
+const MASTER_API_KEY = 'saas_master_api_url';
 
 const getOrgKey = (orgId: string, key: string) => `${STORAGE_PREFIX}${orgId}_${key}`;
 
-// Helper to retrieve the current organization context from local storage
 const getCurrentOrgId = () => {
   return localStorage.getItem('saas_current_org_id') || '';
 };
 
-// --- ORGANIZATIONS ---
+// --- MASTER REGISTRY (Global Management) ---
+
+export const getMasterApiUrl = (): string => {
+  return localStorage.getItem(MASTER_API_KEY) || '';
+};
+
+export const saveMasterApiUrl = (url: string) => {
+  localStorage.setItem(MASTER_API_KEY, url.trim());
+};
+
+export const fetchGlobalOrganizations = async (): Promise<Organization[]> => {
+  const url = getMasterApiUrl();
+  if (!url) return getSavedOrganizations();
+
+  try {
+    const response = await fetch(url + "?action=GET_ORGS");
+    if (!response.ok) throw new Error('Error fetching master list');
+    const result = await response.json();
+    if (result.status === 'success') {
+      localStorage.setItem(ORGS_KEY, JSON.stringify(result.data));
+      return result.data;
+    }
+    return getSavedOrganizations();
+  } catch (e) {
+    console.error("Master fetch failed:", e);
+    return getSavedOrganizations();
+  }
+};
+
+export const updateOrgInMaster = async (org: Organization, action: 'REGISTER_ORG' | 'UPDATE_ORG' | 'DELETE_ORG'): Promise<boolean> => {
+  const url = getMasterApiUrl();
+  
+  // Local Sync
+  if (action === 'DELETE_ORG') {
+    const orgs = getSavedOrganizations().filter(o => o.id !== org.id);
+    localStorage.setItem(ORGS_KEY, JSON.stringify(orgs));
+  } else {
+    saveOrganization(org);
+  }
+  
+  if (!url) return true;
+
+  try {
+    await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ action, data: org }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    return true;
+  } catch (e) {
+    console.error("Master action failed:", e);
+    return false;
+  }
+};
+
+// --- LOCAL PERSISTENCE ---
 export const getSavedOrganizations = (): Organization[] => {
   try {
     const data = localStorage.getItem(ORGS_KEY);
@@ -30,7 +85,7 @@ export const saveOrganization = (org: Organization) => {
   localStorage.setItem(ORGS_KEY, JSON.stringify(updated));
 };
 
-// --- DATA ACCESS (Scoped by Org) ---
+// --- DATA ACCESS ---
 export const getUnits = (orgId: string = getCurrentOrgId()): MaintenanceUnit[] => {
   if (!orgId) return [];
   try {
@@ -80,6 +135,24 @@ export const saveTools = (orgId: string, tools: Tool[]) => {
   localStorage.setItem(getOrgKey(orgId, 'tools'), JSON.stringify(tools));
 };
 
+// Fix: Add updateTool export
+export const updateTool = async (updatedTool: Tool): Promise<Tool[]> => {
+  const orgId = updatedTool.orgId || getCurrentOrgId();
+  const tools = getTools(orgId);
+  const newTools = tools.map(t => t.id === updatedTool.id ? updatedTool : t);
+  saveTools(orgId, newTools);
+  return newTools;
+};
+
+// Fix: Add addTool export
+export const addTool = async (newTool: Tool): Promise<Tool[]> => {
+  const orgId = newTool.orgId || getCurrentOrgId();
+  const tools = getTools(orgId);
+  const newTools = [...tools, newTool];
+  saveTools(orgId, newTools);
+  return newTools;
+};
+
 export const getWarehouse = (orgId: string = getCurrentOrgId()): WarehouseItem[] => {
   if (!orgId) return [];
   try {
@@ -95,22 +168,7 @@ export const saveWarehouse = (orgId: string, items: WarehouseItem[]) => {
   localStorage.setItem(getOrgKey(orgId, 'warehouse'), JSON.stringify(items));
 };
 
-export const updateTool = async (updatedTool: Tool): Promise<Tool[]> => {
-  const orgId = updatedTool.orgId || getCurrentOrgId();
-  const tools = getTools(orgId);
-  const newTools = tools.map(t => t.id === updatedTool.id ? updatedTool : t);
-  saveTools(orgId, newTools);
-  return newTools;
-};
-
-export const addTool = async (newTool: Tool): Promise<Tool[]> => {
-  const orgId = newTool.orgId || getCurrentOrgId();
-  const tools = getTools(orgId);
-  const newTools = [...tools, newTool];
-  saveTools(orgId, newTools);
-  return newTools;
-};
-
+// Fix: Add updateWarehouseItem export
 export const updateWarehouseItem = async (updatedItem: WarehouseItem): Promise<WarehouseItem[]> => {
   const orgId = updatedItem.orgId || getCurrentOrgId();
   const items = getWarehouse(orgId);
@@ -119,6 +177,7 @@ export const updateWarehouseItem = async (updatedItem: WarehouseItem): Promise<W
   return newItems;
 };
 
+// Fix: Add addWarehouseItem export
 export const addWarehouseItem = async (newItem: WarehouseItem): Promise<WarehouseItem[]> => {
   const orgId = newItem.orgId || getCurrentOrgId();
   const items = getWarehouse(orgId);
@@ -151,7 +210,6 @@ export const saveApiConfig = (url: string) => {
 export const syncWithGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
   const url = getApiConfig();
   if (!url) return { success: false, message: 'URL no configurada.' };
-
   const orgId = getCurrentOrgId();
   try {
     const payload = {
@@ -165,13 +223,11 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
         auth: getAuthData()
       }
     };
-
     const response = await fetch(url, {
       method: 'POST',
       body: JSON.stringify(payload),
       headers: { 'Content-Type': 'text/plain' }
     });
-
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
     return { success: true, message: result.message || 'Sincronizado.' };
@@ -180,13 +236,15 @@ export const syncWithGoogleSheets = async (): Promise<{success: boolean, message
   }
 };
 
+// Fix: Add fetchFromGoogleSheets export
 export const fetchFromGoogleSheets = async (): Promise<{success: boolean, message: string}> => {
   const url = getApiConfig();
   if (!url) return { success: false, message: 'URL no configurada.' };
 
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+
     const result = await response.json();
     if (result.status === 'success') {
       const orgId = getCurrentOrgId();
@@ -195,7 +253,7 @@ export const fetchFromGoogleSheets = async (): Promise<{success: boolean, messag
       saveTools(orgId, result.data.tools);
       saveWarehouse(orgId, result.data.warehouse);
       saveAuthData(result.data.auth);
-      return { success: true, message: 'Descargado.' };
+      return { success: true, message: 'Datos descargados.' };
     }
     return { success: false, message: result.message };
   } catch (error: any) {
@@ -209,6 +267,10 @@ export const resetData = () => {
 };
 
 export const sheetService = {
+  getMasterApiUrl,
+  saveMasterApiUrl,
+  fetchGlobalOrganizations,
+  updateOrgInMaster,
   getSavedOrganizations,
   saveOrganization,
   getUnits,
@@ -217,10 +279,15 @@ export const sheetService = {
   saveCampuses,
   getTools,
   saveTools,
+  updateTool,
+  addTool,
   getWarehouse,
   saveWarehouse,
+  updateWarehouseItem,
+  addWarehouseItem,
   getAuthData,
   saveAuthData,
   resetData,
+  fetchFromGoogleSheets,
   syncOrgWithCloud: async () => syncWithGoogleSheets()
 };

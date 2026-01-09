@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle, DownloadCloud, Lock, Users, Trash2 } from 'lucide-react';
-import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits, getCampuses, getTools, getWarehouse, fetchFromGoogleSheets, getAuthData, saveAuthData, resetData } from '../services/sheetService';
+import { X, Database, Save, Download, RefreshCw, CheckCircle, AlertCircle, DownloadCloud, Lock, Users, Trash2, Globe } from 'lucide-react';
+import { getApiConfig, saveApiConfig, syncWithGoogleSheets, getUnits, getCampuses, getTools, getWarehouse, fetchFromGoogleSheets, getAuthData, saveAuthData, resetData, getMasterApiUrl, saveMasterApiUrl } from '../services/sheetService';
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -8,10 +9,11 @@ interface AdminSettingsModalProps {
 }
 
 const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'db' | 'users'>('db');
+  const [activeTab, setActiveTab] = useState<'db' | 'users' | 'master'>('db');
   
   // DB State
   const [apiUrl, setApiUrl] = useState('');
+  const [masterUrl, setMasterUrl] = useState('');
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -21,6 +23,7 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
   useEffect(() => {
     if (isOpen) {
       setApiUrl(getApiConfig());
+      setMasterUrl(getMasterApiUrl());
       setAuthData(getAuthData());
       setSyncStatus('idle');
       setStatusMessage('');
@@ -33,7 +36,14 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
   const handleSaveConfig = () => {
     saveApiConfig(apiUrl);
     setSyncStatus('success');
-    setStatusMessage('Configuración guardada localmente.');
+    setStatusMessage('Configuración de colegio guardada.');
+    setTimeout(() => setSyncStatus('idle'), 2000);
+  };
+
+  const handleSaveMaster = () => {
+    saveMasterApiUrl(masterUrl);
+    setSyncStatus('success');
+    setStatusMessage('Registro maestro actualizado.');
     setTimeout(() => setSyncStatus('idle'), 2000);
   };
 
@@ -79,13 +89,7 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
 
   const handleSavePasswords = () => {
     saveAuthData(authData);
-    alert("Contraseñas actualizadas. Recuerda SINCRONIZAR para subirlas a la nube.");
-  };
-
-  const handleHardReset = () => {
-    if (confirm("⚠️ ¿ESTÁS SEGURO? \n\nEsto borrará TODA la configuración local, contraseñas y datos en este dispositivo. Úsalo si la app no carga correctamente.")) {
-        resetData();
-    }
+    alert("Contraseñas actualizadas localmente.");
   };
 
   return (
@@ -102,18 +106,24 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
           </button>
         </div>
 
-        <div className="flex border-b bg-gray-50">
+        <div className="flex border-b bg-gray-50 overflow-x-auto">
             <button 
                 onClick={() => setActiveTab('db')}
-                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'db' ? 'border-black text-black bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'db' ? 'border-black text-black bg-white' : 'border-transparent text-gray-500'}`}
             >
-                <Database size={16} /> Base de Datos
+                <Database size={14} /> Local
             </button>
             <button 
                 onClick={() => setActiveTab('users')}
-                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'users' ? 'border-black text-black bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'users' ? 'border-black text-black bg-white' : 'border-transparent text-gray-500'}`}
             >
-                <Users size={16} /> Usuarios y Claves
+                <Users size={14} /> Claves
+            </button>
+            <button 
+                onClick={() => setActiveTab('master')}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border-b-2 transition ${activeTab === 'master' ? 'border-black text-black bg-white' : 'border-transparent text-gray-500'}`}
+            >
+                <Globe size={14} /> Maestro
             </button>
         </div>
 
@@ -122,112 +132,78 @@ const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose
           {activeTab === 'db' && (
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  URL del Endpoint (Google Apps Script)
+                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                  Endpoint Institucional (Google Sheets)
                 </label>
                 <div className="flex gap-2">
                   <input 
                     type="text" 
                     value={apiUrl}
                     onChange={(e) => setApiUrl(e.target.value)}
-                    placeholder="https://script.google.com/macros/s/..."
-                    className="flex-1 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-black outline-none font-mono"
+                    placeholder="https://script.google.com/..."
+                    className="flex-1 border border-gray-300 rounded-lg p-2.5 text-xs outline-none focus:ring-2 focus:ring-black font-mono"
                   />
-                  <button 
-                    onClick={handleSaveConfig}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 p-2.5 rounded-lg border border-gray-300 transition"
-                    title="Guardar URL"
-                  >
-                    <Save size={18} />
-                  </button>
+                  <button onClick={handleSaveConfig} className="bg-gray-100 hover:bg-gray-200 p-2.5 rounded-lg border border-gray-300"><Save size={18} /></button>
                 </div>
               </div>
 
-              <div className="border-t pt-6 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900">Sincronización</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <button 
-                    onClick={handleSync}
-                    disabled={syncStatus === 'loading'}
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition disabled:opacity-70 text-sm"
-                  >
-                    {syncStatus === 'loading' ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                    Sincronizar (Subir)
-                  </button>
-
-                  <button 
-                    onClick={handleDownloadCloud}
-                    disabled={syncStatus === 'loading'}
-                    className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg transition disabled:opacity-70 text-sm"
-                  >
-                    {syncStatus === 'loading' ? <RefreshCw size={18} className="animate-spin" /> : <DownloadCloud size={18} />}
-                    Descargar (Nube)
-                  </button>
-
-                  <button 
-                    onClick={handleExportJson}
-                    className="col-span-2 flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 py-3 px-4 rounded-lg transition text-sm"
-                  >
-                    <Download size={18} />
-                    Exportar Backup JSON
-                  </button>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <button onClick={handleSync} disabled={syncStatus === 'loading'} className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition shadow-lg shadow-blue-500/20">
+                  {syncStatus === 'loading' ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />} Subir
+                </button>
+                <button onClick={handleDownloadCloud} disabled={syncStatus === 'loading'} className="flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition">
+                   <DownloadCloud size={16} /> Bajar
+                </button>
               </div>
 
-               {/* Hard Reset Zone */}
-               <div className="border-t pt-6">
-                <h3 className="text-sm font-semibold text-red-700 mb-2">Zona de Peligro</h3>
-                <button 
-                    onClick={handleHardReset}
-                    className="w-full flex items-center justify-center gap-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 py-2 px-4 rounded-lg transition text-sm font-bold"
-                  >
-                    <Trash2 size={16} />
-                    Reinicio de Fábrica (Borrar Caché)
-                  </button>
-                  <p className="text-[10px] text-gray-500 mt-1 text-center">Usa esto si tu celular no sincroniza o presenta fallos.</p>
-               </div>
-
-              {statusMessage && (
-                <div className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
-                  syncStatus === 'success' ? 'bg-green-50 text-green-700' : 
-                  syncStatus === 'error' ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-600'
-                }`}>
-                  {syncStatus === 'success' && <CheckCircle size={16} />}
-                  {syncStatus === 'error' && <AlertCircle size={16} />}
-                  {statusMessage}
-                </div>
-              )}
+              <div className="border-t pt-6">
+                 <button onClick={handleExportJson} className="w-full bg-white border border-gray-200 text-gray-700 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest mb-4 hover:bg-gray-50 transition">Exportar JSON</button>
+                 <button onClick={() => { if(confirm("¿Reiniciar app?")) resetData(); }} className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-700 py-2.5 rounded-lg text-[10px] font-black uppercase border border-red-200"><Trash2 size={16} /> Reinicio de Fábrica</button>
+              </div>
             </div>
           )}
 
           {activeTab === 'users' && (
-             <div className="space-y-6">
-                 <p className="text-sm text-gray-500 bg-yellow-50 p-3 rounded border border-yellow-100">
-                    Define las contraseñas para cada rol. Los usuarios deberán ingresarla al iniciar la app.
-                 </p>
-                 <div className="space-y-4">
-                    {['ADMIN', 'MAINTENANCE', 'TREASURY', 'SOLICITOR'].map(role => (
-                        <div key={role} className="flex flex-col gap-1">
-                            <label className="text-xs font-bold text-gray-600">{role}</label>
-                            <div className="relative">
-                                <Lock size={16} className="absolute left-3 top-2.5 text-gray-400" />
-                                <input 
-                                    type="text"
-                                    className="w-full border rounded pl-9 p-2 text-sm"
-                                    value={authData[role] || ''}
-                                    onChange={(e) => setAuthData({...authData, [role]: e.target.value})}
-                                />
-                            </div>
+             <div className="space-y-4">
+                {['ADMIN', 'MAINTENANCE', 'TREASURY', 'SOLICITOR'].map(role => (
+                    <div key={role} className="flex flex-col gap-1">
+                        <label className="text-[10px] font-black text-gray-500 uppercase">{role}</label>
+                        <div className="relative">
+                            <Lock size={14} className="absolute left-3 top-3 text-gray-400" />
+                            <input type="text" className="w-full border rounded-lg pl-9 p-2.5 text-sm outline-none focus:border-black" value={authData[role] || ''} onChange={(e) => setAuthData({...authData, [role]: e.target.value})} />
                         </div>
-                    ))}
-                 </div>
-                 <button onClick={handleSavePasswords} className="w-full bg-black text-white py-2 rounded-lg text-sm hover:bg-gray-800 transition">
-                    Guardar Contraseñas
-                 </button>
+                    </div>
+                ))}
+                <button onClick={handleSavePasswords} className="w-full bg-black text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest mt-4 shadow-xl">Actualizar Claves</button>
              </div>
           )}
 
+          {activeTab === 'master' && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3">
+                <Globe size={20} className="text-blue-500 shrink-0" />
+                <p className="text-[10px] text-blue-700 leading-tight">
+                  <strong>Configuración Global:</strong> Esta URL conecta la app con tu Directorio Maestro donde se guardan todos los colegios registrados.
+                </p>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-700 mb-2 uppercase">URL Endpoint Maestro</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={masterUrl}
+                    onChange={(e) => setMasterUrl(e.target.value)}
+                    placeholder="URL del Script Maestro"
+                    className="flex-1 border rounded-lg p-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  />
+                  <button onClick={handleSaveMaster} className="bg-blue-600 text-white p-2.5 rounded-lg hover:bg-blue-700"><Save size={18} /></button>
+                </div>
+              </div>
+              <p className="text-[9px] text-gray-400 italic">Nota: Si este campo está vacío, el registro de colegios solo será local en este dispositivo.</p>
+            </div>
+          )}
+
+          {statusMessage && <div className="mt-4 p-3 bg-gray-50 text-[10px] font-bold uppercase text-center rounded-lg border border-gray-100 animate-in fade-in">{statusMessage}</div>}
         </div>
       </div>
     </div>

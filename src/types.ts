@@ -1,4 +1,5 @@
-export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN' | 'SOLICITOR';
+
+export type Role = 'MAINTENANCE' | 'TREASURY' | 'VIEWER' | 'ADMIN' | 'SOLICITOR' | 'SUPER_ADMIN';
 
 export enum Status {
   OPERATIVE = 'OPERATIVE',

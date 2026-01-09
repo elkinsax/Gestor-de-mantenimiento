@@ -9,11 +9,13 @@ import AdminSettingsModal from './components/AdminSettingsModal';
 import WarehouseModal from './components/WarehouseModal';
 import LoginScreen from './components/LoginScreen';
 import GeneralDashboard from './components/GeneralDashboard';
+import AdminGlobalDashboard from './components/AdminGlobalDashboard';
 import { Settings, MapPin, Plus, LogOut, RefreshCw } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
   const [role, setRole] = useState<Role | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   
   const [units, setUnits] = useState<MaintenanceUnit[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
@@ -33,10 +35,10 @@ const App: React.FC = () => {
   const [selectedCampus, setSelectedCampus] = useState<string>('TODAS');
 
   useEffect(() => {
-    if (currentOrg) {
+    if (currentOrg && !isSuperAdmin) {
       loadOrgData();
     }
-  }, [currentOrg]);
+  }, [currentOrg, isSuperAdmin]);
 
   const loadOrgData = () => {
     if (!currentOrg) return;
@@ -54,11 +56,13 @@ const App: React.FC = () => {
   const handleLogin = (org: Organization, role: Role) => {
     setCurrentOrg(org);
     setRole(role);
+    setIsSuperAdmin(false);
   };
 
   const handleLogout = () => {
     setCurrentOrg(null);
     setRole(null);
+    setIsSuperAdmin(false);
   };
 
   const handleSaveUnit = (unit: MaintenanceUnit) => {
@@ -87,8 +91,14 @@ const App: React.FC = () => {
     loadOrgData();
   };
 
+  // UI para Super Administrador Global
+  if (isSuperAdmin) {
+    return <AdminGlobalDashboard onLogout={handleLogout} />;
+  }
+
+  // UI para Login
   if (!currentOrg || !role) {
-    return <LoginScreen onLogin={handleLogin} />;
+    return <LoginScreen onLogin={handleLogin} onSuperAdmin={() => setIsSuperAdmin(true)} />;
   }
 
   const filteredUnits = units
@@ -99,7 +109,6 @@ const App: React.FC = () => {
       <header className="bg-black text-white px-6 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xl border-b border-white/10">
         <div className="flex items-center gap-4">
            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1.5 shadow-lg overflow-hidden">
-             {/* Ahora el logo es dinámico según la organización */}
              <img src={currentOrg.logoUrl || "https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png"} alt="Logo" className="max-h-full object-contain" />
            </div>
            <div>

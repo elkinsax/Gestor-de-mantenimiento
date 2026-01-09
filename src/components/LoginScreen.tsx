@@ -6,14 +6,16 @@ import { ShieldCheck, User, Wrench, Wallet, Lock, ArrowRight, Building, Plus, X,
 
 interface LoginScreenProps {
   onLogin: (org: Organization, role: Role) => void;
+  onSuperAdmin: () => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSuperAdmin }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [step, setStep] = useState<'portal' | 'role' | 'pass'>('portal');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   
   // Registration state
   const [showRegister, setShowRegister] = useState(false);
@@ -23,11 +25,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const saved = sheetService.getSavedOrganizations();
-    setOrganizations(saved);
+    loadOrgs();
   }, []);
 
-  // Procesador de imágenes para logos
+  const loadOrgs = async () => {
+    setIsLoading(true);
+    const globalOrgs = await sheetService.fetchGlobalOrganizations();
+    setOrganizations(globalOrgs);
+    setIsLoading(false);
+  };
+
   const processLogo = (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('Por favor, sube un archivo de imagen válido.');
@@ -45,7 +52,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         const MAX_SIZE = 256; 
         let width = img.width;
         let height = img.height;
-
         if (width > height) {
           if (width > MAX_SIZE) {
             height *= MAX_SIZE / width;
@@ -57,7 +63,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
             height = MAX_SIZE;
           }
         }
-
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
@@ -78,7 +83,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     }
   };
 
-  const handleRegisterOrg = (e: React.FormEvent) => {
+  const handleRegisterOrg = async (e: React.FormEvent) => {
     e.preventDefault();
     if (regName.trim()) {
       const newOrg: Organization = {
@@ -87,13 +92,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         logoUrl: regLogoBase64 || 'https://i.ibb.co/4QC1Xxx/LOGO-Colegio-Boston-Internacionall.png',
         plan: 'FREE'
       };
-      sheetService.saveOrganization(newOrg);
-      setOrganizations([...organizations, newOrg]);
-      setShowRegister(false);
-      setRegName('');
-      setRegLogoBase64(null);
-      setSelectedOrg(newOrg);
-      setStep('role');
+      setIsProcessingImage(true);
+      const success = await sheetService.updateOrgInMaster(newOrg, 'REGISTER_ORG');
+      setIsProcessingImage(false);
+      if (success) {
+        setOrganizations([...organizations, newOrg]);
+        setShowRegister(false);
+        setRegName('');
+        setRegLogoBase64(null);
+        setSelectedOrg(newOrg);
+        setStep('role');
+      } else {
+        alert("Error al registrar el colegio.");
+      }
     }
   };
 
@@ -114,16 +125,22 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
   const handleFinalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // PIN de Acceso Super Admin Oculto
+    if (password === '0000') {
+      onSuperAdmin();
+      return;
+    }
+    
     if (password === '1234' || password === 'admin123') {
       localStorage.setItem('saas_current_org_id', selectedOrg!.id);
       onLogin(selectedOrg!, selectedRole!);
     } else {
-      alert("PIN incorrecto para esta institución.");
+      alert("PIN incorrecto.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] flex flex-col items-center justify-center p-4 text-white font-sans selection:bg-blue-500">
+    <div className="min-h-screen bg-[#0a0f1a] flex flex-col items-center justify-center p-4 text-white font-sans selection:bg-blue-500 overflow-hidden">
       
       <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full blur-[120px]"></div>
@@ -134,11 +151,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         
         {step === 'portal' && (
           <div className="text-center space-y-8">
-            <div className="space-y-2">
+            <div className="space-y-2 cursor-pointer active:scale-95 transition" onClick={loadOrgs}>
               <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase italic bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
                 Mantenimiento <span className="text-blue-500 underline decoration-blue-500/30 underline-offset-8">PRO</span>
               </h1>
-              <p className="text-gray-400 font-medium tracking-widest text-xs uppercase">Infraestructura Escolar Inteligente</p>
+              <p className="text-gray-400 font-medium tracking-widest text-xs uppercase text-center">Infraestructura Escolar Inteligente</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
@@ -146,19 +163,23 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 <Globe className="text-blue-400 mb-4" size={32} />
                 <h2 className="text-xl font-bold mb-6">Escuelas Registradas</h2>
                 <div className="w-full space-y-3 max-h-[300px] overflow-y-auto no-scrollbar pr-1">
-                  {organizations.map(org => (
-                    <button 
-                      key={org.id}
-                      onClick={() => handleOrgSelect(org)}
-                      className="w-full p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/50 transition-all flex items-center gap-4 group"
-                    >
-                      <img src={org.logoUrl} className="w-10 h-10 object-contain bg-white rounded-lg p-1" alt="Logo" />
-                      <span className="font-bold text-left flex-1">{org.name}</span>
-                      <ArrowRight size={18} className="text-gray-600 group-hover:text-blue-500 transition-transform group-hover:translate-x-1" />
-                    </button>
-                  ))}
-                  {organizations.length === 0 && (
-                    <p className="text-gray-500 text-sm py-4 italic">No hay instituciones dadas de alta.</p>
+                  {isLoading ? (
+                    <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>
+                  ) : (
+                    <>
+                      {organizations.map(org => (
+                        <button 
+                          key={org.id}
+                          onClick={() => handleOrgSelect(org)}
+                          className="w-full p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/50 transition-all flex items-center gap-4 group"
+                        >
+                          <img src={org.logoUrl} className="w-10 h-10 object-contain bg-white rounded-lg p-1" alt="Logo" />
+                          <span className="font-bold text-left flex-1">{org.name}</span>
+                          <ArrowRight size={18} className="text-gray-600 group-hover:text-blue-500 transition-transform group-hover:translate-x-1" />
+                        </button>
+                      ))}
+                      {organizations.length === 0 && <p className="text-gray-500 text-sm py-4 italic">No hay instituciones.</p>}
+                    </>
                   )}
                 </div>
               </div>
@@ -166,19 +187,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
               <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 backdrop-blur-md border border-white/10 p-8 rounded-[2.5rem] flex flex-col items-center justify-center text-center">
                 <Building className="text-blue-400 mb-4" size={48} />
                 <h2 className="text-2xl font-bold mb-4">¿Eres una Escuela Nueva?</h2>
-                <p className="text-gray-400 text-sm mb-8 leading-relaxed">
-                  Crea tu propio ecosistema de mantenimiento, gestiona sedes, inventarios y reportes QR en minutos.
-                </p>
+                <p className="text-gray-400 text-sm mb-8 leading-relaxed">Únete a la red líder de gestión de infraestructura educativa en la región.</p>
                 <button 
                   onClick={() => setShowRegister(true)}
                   className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 font-black uppercase tracking-widest transition shadow-lg shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-2"
                 >
-                  <Plus size={20} /> Registrar mi Colegio
+                  <Plus size={20} /> Registrar Colegio
                 </button>
               </div>
             </div>
-            
-            <p className="text-gray-600 text-[10px] mt-12 uppercase tracking-[0.3em]">© 2024 SaaS Maintenance Engine • v2.0 Global</p>
           </div>
         )}
 
@@ -186,10 +203,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           <div className="max-w-md mx-auto space-y-8 animate-in slide-in-from-bottom-8 duration-500">
              <div className="text-center">
                 <img src={selectedOrg.logoUrl} className="w-20 h-20 mx-auto bg-white rounded-2xl p-2 shadow-2xl mb-4 object-contain" alt="Org Logo" />
-                <h2 className="text-3xl font-black uppercase tracking-tighter">{selectedOrg.name}</h2>
-                <p className="text-gray-500 text-xs font-bold mt-1 uppercase tracking-widest">Portal de Acceso Institucional</p>
+                <h2 className="text-3xl font-black uppercase tracking-tighter text-center">{selectedOrg.name}</h2>
+                <p className="text-gray-500 text-xs font-bold mt-1 uppercase tracking-widest text-center">Portal de Acceso Institucional</p>
              </div>
-
              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2rem] shadow-2xl">
                 <div className="grid grid-cols-2 gap-4">
                   {[
@@ -198,16 +214,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                     { r: 'TREASURY', i: Wallet, l: 'Tesorería', c: 'green', d: 'Presupuestos' },
                     { r: 'SOLICITOR', i: User, l: 'Solicitante', c: 'purple', d: 'Reportes QR' }
                   ].map(({r, i: Icon, l, c, d}) => (
-                    <button 
-                      key={r}
-                      onClick={() => handleRoleSelect(r as Role)}
-                      className="flex flex-col items-center text-center gap-2 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/30 transition-all group"
-                    >
+                    <button key={r} onClick={() => handleRoleSelect(r as Role)} className="flex flex-col items-center text-center gap-2 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-blue-500/30 transition-all group">
                       <Icon size={28} className={`text-${c}-500 group-hover:scale-110 transition`} />
-                      <div>
-                        <span className="block text-[10px] font-black uppercase tracking-tighter mb-0.5">{l}</span>
-                        <span className="block text-[8px] text-gray-500 uppercase">{d}</span>
-                      </div>
+                      <div><span className="block text-[10px] font-black uppercase tracking-tighter mb-0.5">{l}</span><span className="block text-[8px] text-gray-500 uppercase">{d}</span></div>
                     </button>
                   ))}
                 </div>
@@ -219,24 +228,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         {step === 'pass' && selectedRole && (
           <div className="max-w-sm mx-auto animate-in zoom-in duration-300">
              <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] shadow-2xl text-center">
-               <div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                 <Lock size={24} className="text-blue-500" />
-               </div>
-               <h2 className="text-xl font-bold mb-2 uppercase tracking-tighter">Verificación</h2>
-               <p className="text-gray-500 text-xs mb-8">Ingresa el PIN de seguridad para el perfil <strong>{selectedRole}</strong></p>
-               
+               <div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-6"><Lock size={24} className="text-blue-500" /></div>
+               <h2 className="text-xl font-bold mb-2 uppercase tracking-tighter text-center">Verificación</h2>
+               <p className="text-gray-500 text-xs mb-8 text-center">Ingresa el PIN de seguridad para continuar.</p>
                <form onSubmit={handleFinalSubmit} className="space-y-4">
-                 <input 
-                  type="password" 
-                  autoFocus
-                  placeholder="PIN DE ACCESO"
-                  className="w-full bg-black/50 border border-white/10 rounded-2xl py-4 px-6 text-center text-xl font-black tracking-[0.5em] focus:border-blue-500 outline-none transition"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                 />
-                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black uppercase tracking-widest transition active:scale-95 shadow-lg shadow-blue-500/20">
-                   Entrar al Sistema
-                 </button>
+                 <input type="password" autoFocus placeholder="PIN DE ACCESO" className="w-full bg-black/50 border border-white/10 rounded-2xl py-4 px-6 text-center text-xl font-black tracking-[0.5em] focus:border-blue-500 outline-none transition" value={password} onChange={(e) => setPassword(e.target.value)} />
+                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black uppercase tracking-widest transition active:scale-95 shadow-lg shadow-blue-500/20">Entrar</button>
                </form>
                <button onClick={() => setStep('role')} className="mt-6 text-[10px] text-gray-500 uppercase font-bold tracking-widest">Cambiar Perfil</button>
              </div>
@@ -245,77 +242,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
       </div>
 
-      {/* Modal Registro de Nueva Institución */}
       {showRegister && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-6">
           <div className="bg-gray-900 border border-white/10 p-8 rounded-[3rem] w-full max-w-md shadow-2xl animate-in fade-in slide-in-from-bottom-12">
              <div className="flex justify-between items-start mb-8">
-                <div>
-                   <h3 className="text-2xl font-black tracking-tighter uppercase">Nuevo Entorno</h3>
-                   <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Configuración Inicial SaaS</p>
-                </div>
+                <div><h3 className="text-2xl font-black tracking-tighter uppercase">Registro Maestro</h3><p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Alta en Directorio Global</p></div>
                 <button onClick={() => setShowRegister(false)} className="p-2 hover:bg-white/5 rounded-full"><X size={20}/></button>
              </div>
-             
              <form onSubmit={handleRegisterOrg} className="space-y-6">
-                <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Nombre de la Institución</label>
-                   <input 
-                    required
-                    placeholder="Ej. Liceo Moderno Internacional"
-                    className="w-full bg-black border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition"
-                    value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
-                   />
+                <div>
+                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Nombre de la Institución</label>
+                   <input required className="w-full bg-black border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition" value={regName} onChange={(e) => setRegName(e.target.value)} />
                 </div>
-
-                <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Identidad Visual (PNG)</label>
-                   
-                   <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`w-full h-32 bg-black border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all ${regLogoBase64 ? 'border-green-500/50' : 'border-white/10 hover:border-blue-500/50'}`}
-                   >
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        accept="image/*" 
-                        onChange={handleFileChange}
-                      />
-                      
-                      {isProcessingImage ? (
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                      ) : regLogoBase64 ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <img src={regLogoBase64} alt="Preview" className="h-16 w-auto object-contain rounded" />
-                          <span className="text-[9px] text-green-500 font-bold uppercase">Logo Procesado</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-1 text-gray-500">
-                           <Upload size={24} />
-                           <span className="text-[10px] font-bold uppercase tracking-wider">Subir Logo PNG</span>
-                           <span className="text-[8px] opacity-60 italic">Se aislará en su propio espacio de datos</span>
-                        </div>
-                      )}
+                <div>
+                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 mb-2 block">Identidad Visual (Logo)</label>
+                   <div onClick={() => fileInputRef.current?.click()} className={`w-full h-32 bg-black border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all ${regLogoBase64 ? 'border-green-500/50' : 'border-white/10 hover:border-blue-500/50'}`}>
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                      {isProcessingImage ? <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div> : regLogoBase64 ? <img src={regLogoBase64} className="h-16 w-auto object-contain" alt="Preview" /> : <div className="flex flex-col items-center gap-1 text-gray-500"><Upload size={24} /><span className="text-[10px] font-bold uppercase tracking-wider">Subir Logo PNG</span></div>}
                    </div>
                 </div>
-
-                <div className="p-4 bg-blue-600/10 border border-blue-500/20 rounded-2xl flex gap-3 items-start">
-                   <CreditCard size={18} className="text-blue-500 mt-1 shrink-0" />
-                   <div>
-                      <p className="text-[10px] font-bold text-blue-400 uppercase">Seguridad Multitenant</p>
-                      <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">Cada colegio gestiona su propia base de datos de Google Sheets de forma privada e independiente.</p>
-                   </div>
-                </div>
-
-                <button 
-                  type="submit" 
-                  disabled={isProcessingImage}
-                  className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition active:scale-95 disabled:opacity-50 shadow-xl shadow-white/5"
-                >
-                  {isProcessingImage ? 'Procesando...' : 'Crear Espacio de Trabajo'}
-                </button>
+                <button type="submit" disabled={isProcessingImage} className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition active:scale-95 disabled:opacity-50">Registrar Institución</button>
              </form>
           </div>
         </div>
