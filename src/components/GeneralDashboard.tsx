@@ -5,7 +5,6 @@ import {
   Activity, 
   AlertTriangle, 
   CheckCircle, 
-  Clock, 
   Wrench, 
   Building,
   TrendingUp,
@@ -35,7 +34,6 @@ const GeneralDashboard: React.FC<GeneralDashboardProps> = ({ units, tools, wareh
   const totalTools = tools.length;
   const toolsAvailable = tools.filter(t => t.status === 'AVAILABLE').length;
   const toolsInUse = tools.filter(t => t.status === 'IN_USE').length;
-  const toolsBroken = tools.filter(t => t.status === 'BROKEN').length;
 
   // Alertas de Inventario
   const lowStockItems = warehouse.filter(w => w.quantity < 5);
