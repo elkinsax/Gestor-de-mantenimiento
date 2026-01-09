@@ -13,7 +13,6 @@ import {
   Edit, 
   LogOut,
   Globe,
-  Database,
   X
 } from 'lucide-react';
 
