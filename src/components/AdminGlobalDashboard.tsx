@@ -13,6 +13,7 @@ import {
   Edit, 
   LogOut,
   Globe,
+  Database,
   X
 } from 'lucide-react';
 
@@ -249,6 +250,11 @@ const AdminGlobalDashboard: React.FC<AdminGlobalDashboardProps> = ({ onLogout })
                     placeholder="https://script.google.com/macros/s/..."
                    />
                    <p className="text-[9px] text-gray-400 mt-2 italic px-1">* Este URL vincula la instancia privada del cliente con el sistema global.</p>
+                </div>
+
+                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                  <Database size={16} className="text-blue-600" />
+                  <p className="text-[9px] text-blue-700 font-bold uppercase tracking-widest">Cambios sincronizados con el Master API</p>
                 </div>
 
                 <button type="submit" className="w-full bg-black text-white py-5 rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] hover:bg-blue-600 transition shadow-xl active:scale-95 mt-4">
