@@ -10,7 +10,8 @@ import WarehouseModal from './components/WarehouseModal';
 import LoginScreen from './components/LoginScreen';
 import GeneralDashboard from './components/GeneralDashboard';
 import AdminGlobalDashboard from './components/AdminGlobalDashboard';
-import { Settings, MapPin, Plus, LogOut, RefreshCw } from 'lucide-react';
+import ManageCampusesModal from './components/ManageCampusesModal';
+import { Settings, MapPin, Plus, LogOut, RefreshCw, SlidersHorizontal } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
@@ -30,6 +31,7 @@ const App: React.FC = () => {
   const [isCreateUnitOpen, setIsCreateUnitOpen] = useState(false);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
   const [isWarehouseOpen, setIsWarehouseOpen] = useState(false);
+  const [isManageCampusesOpen, setIsManageCampusesOpen] = useState(false);
 
   // Filters
   const [selectedCampus, setSelectedCampus] = useState<string>('TODAS');
@@ -80,6 +82,37 @@ const App: React.FC = () => {
     setIsCreateUnitOpen(false);
   };
 
+  // Campus Handlers
+  const handleAddCampus = (name: string) => {
+    const newCampuses = [...availableCampuses, name];
+    sheetService.saveCampuses(currentOrg!.id, newCampuses);
+    setAvailableCampuses(newCampuses);
+  };
+
+  const handleRenameCampus = (oldName: string, newName: string) => {
+    const newCampuses = availableCampuses.map(c => c === oldName ? newName : c);
+    sheetService.saveCampuses(currentOrg!.id, newCampuses);
+    setAvailableCampuses(newCampuses);
+    
+    // Sincronizar unidades con el nuevo nombre de la sede
+    const updatedUnits = units.map(u => u.campus === oldName ? { ...u, campus: newName } : u);
+    sheetService.saveUnits(currentOrg!.id, updatedUnits);
+    setUnits(updatedUnits);
+  };
+
+  const handleDeleteCampus = (name: string) => {
+    const newCampuses = availableCampuses.filter(c => c !== name);
+    sheetService.saveCampuses(currentOrg!.id, newCampuses);
+    setAvailableCampuses(newCampuses);
+    
+    // Eliminar unidades de esa sede para mantener coherencia
+    const updatedUnits = units.filter(u => u.campus !== name);
+    sheetService.saveUnits(currentOrg!.id, updatedUnits);
+    setUnits(updatedUnits);
+    
+    if (selectedCampus === name) setSelectedCampus('TODAS');
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     await sheetService.syncOrgWithCloud();
@@ -91,12 +124,10 @@ const App: React.FC = () => {
     loadOrgData();
   };
 
-  // UI para Super Administrador Global
   if (isSuperAdmin) {
     return <AdminGlobalDashboard onLogout={handleLogout} />;
   }
 
-  // UI para Login
   if (!currentOrg || !role) {
     return <LoginScreen onLogin={handleLogin} onSuperAdmin={() => setIsSuperAdmin(true)} />;
   }
@@ -148,11 +179,18 @@ const App: React.FC = () => {
                 </div>
                 
                 <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                   <div className="flex items-center gap-2 bg-white border px-4 py-2 rounded-2xl shadow-sm">
+                   <div className="flex items-center gap-2 bg-white border pr-2 pl-4 py-2 rounded-2xl shadow-sm group">
                       <MapPin size={16} className="text-gray-400" />
-                      <select value={selectedCampus} onChange={(e) => setSelectedCampus(e.target.value)} className="bg-transparent text-sm font-bold focus:outline-none">
+                      <select value={selectedCampus} onChange={(e) => setSelectedCampus(e.target.value)} className="bg-transparent text-sm font-bold focus:outline-none appearance-none cursor-pointer">
                          {['TODAS', ...availableCampuses].map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
+                      <button 
+                        onClick={() => setIsManageCampusesOpen(true)}
+                        className="ml-2 p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-black transition"
+                        title="Gestionar Sedes"
+                      >
+                        <SlidersHorizontal size={14} />
+                      </button>
                    </div>
                    <button onClick={() => setIsCreateUnitOpen(true)} className="flex-1 md:flex-none bg-black text-white px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-black uppercase text-xs tracking-widest hover:bg-blue-600 transition shadow-lg active:scale-95">
                       <Plus size={18} /> Nueva Unidad
@@ -161,9 +199,15 @@ const App: React.FC = () => {
              </div>
 
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-               {filteredUnits.map(unit => (
-                 <UnitCard key={unit.id} unit={unit} onClick={() => setSelectedUnit(unit)} />
-               ))}
+               {filteredUnits.length > 0 ? (
+                 filteredUnits.map(unit => (
+                   <UnitCard key={unit.id} unit={unit} onClick={() => setSelectedUnit(unit)} />
+                 ))
+               ) : (
+                 <div className="col-span-full py-20 text-center text-gray-400 font-bold uppercase tracking-widest text-xs italic">
+                    No hay unidades en esta sede.
+                 </div>
+               )}
              </div>
           </div>
         )}
@@ -175,6 +219,17 @@ const App: React.FC = () => {
       {isWarehouseOpen && <WarehouseModal onClose={handleCloseWarehouse} />}
       {isAdminSettingsOpen && <AdminSettingsModal isOpen={true} onClose={() => setIsAdminSettingsOpen(false)} />}
       {isCreateUnitOpen && <CreateUnitModal isOpen={true} campuses={availableCampuses} onClose={() => setIsCreateUnitOpen(false)} onSave={handleCreateUnit} />}
+      
+      {isManageCampusesOpen && (
+        <ManageCampusesModal 
+          isOpen={true} 
+          campuses={availableCampuses} 
+          onClose={() => setIsManageCampusesOpen(false)} 
+          onAdd={handleAddCampus}
+          onRename={handleRenameCampus}
+          onDelete={handleDeleteCampus}
+        />
+      )}
     </div>
   );
 };
